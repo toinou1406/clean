@@ -1,6 +1,9 @@
 
-import 'dart:io';
+import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
+
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:crypto/crypto.dart';
 
@@ -27,6 +30,9 @@ class PhotoAnalysisResult {
   // --- Stage 2: On-Device AI (Placeholders) ---
   final int faceCount;            // Detected faces (e.g., from MediaPipe)
   final double aestheticScore;      // AI-based quality score (e.g., from MobileNetV3)
+  
+  // --- New Contextual Flag ---
+  final bool isFromScreenshotAlbum; // Flag to identify photos from the screenshot album
 
   // --- Final Score ---
   /// The combined "badness" score. Higher means more likely to be a candidate for deletion.
@@ -39,6 +45,7 @@ class PhotoAnalysisResult {
     required this.luminanceScore,
     required this.entropyScore,
     required this.edgeDensityScore,
+    required this.isFromScreenshotAlbum,
     this.faceCount = 0,
     this.aestheticScore = 0.5, // Default neutral score
   }) {
@@ -46,50 +53,85 @@ class PhotoAnalysisResult {
     finalScore = _calculateFinalScore();
   }
 
-  /// ##########################################################################
-  /// # SCORING ENGINE
-  /// ##########################################################################
-  /// This is the core logic that translates raw metrics into a "delete" recommendation.
-  /// Each condition adds "penalty points". The higher the score, the worse the photo.
-  /// This approach is modular and easy to tune.
-  double _calculateFinalScore() {
-    double score = 0;
+      double _calculateFinalScore() {
 
-    // --- RULE 1: Severe Blur ---
-    // Laplacian variance threshold, determined empirically. Very low variance = very blurry.
-    if (blurScore < 80.0) {
-      score += 45; // High penalty
-    }
+        // This is v5, the "even more accentuated" scoring engine.
 
-    // --- RULE 2: Very Dark Photo ---
-    // Low mean brightness AND low entropy (few details) is a strong signal for a bad photo.
-    if (luminanceScore < 50.0 && entropyScore < 1.5) {
-      score += 30; // High penalty
-    } else if (luminanceScore < 50.0) {
-      score += 15; // Medium penalty for just being dark
-    }
+        // All values have been amplified to create a massive gap between good and bad photos.
+
+        double score = 0;
+
     
-    // --- RULE 3: Document / Whiteboard ---
-    // High edge density is characteristic of text and documents.
-    if (edgeDensityScore > 0.08) { // 8% of pixels are edges
-        score += 25;
-    }
 
-    // --- RULE 4: Potentially Useless (No People, Low Detail) ---
-    // Photos without faces and low detail are often expendable.
-    if (faceCount == 0 && entropyScore < 1.2) {
-      score += 20;
-    }
+        // --- RULE 1: Screenshots are the absolute worst ---
+
+        if (isFromScreenshotAlbum) {
+
+          return 2000.0; // Doubled absolute score
+
+        }
+
+        if (edgeDensityScore > 0.07 && entropyScore < 5.5) {
+
+            score += 400; // Doubled heuristic penalty
+
+        }
+
     
-    // --- RULE 5: AI Aesthetic Score ---
-    // Directly factor in the AI's opinion. We map the [0,1] range to a [-20, 20] penalty/bonus.
-    // A photo the AI rates as 0.0 (bad) gets +20 points. A photo rated 1.0 (good) gets -20 points.
-    score += (1.0 - aestheticScore - 0.5) * 40;
 
-    // Normalize score to be roughly within 0-100 for easier display.
-    return math.max(0, math.min(100, score));
-  }
-}
+        // --- RULE 2: Dark photos are very bad ---
+
+        if (luminanceScore < 50.0) {
+
+          score += 200; // Doubled
+
+        }
+
+    
+
+        // --- RULE 3: Blurry photos are very bad ---
+
+        if (blurScore < 100.0) {
+
+          score += 200; // Doubled
+
+        }
+
+    
+
+        // --- RULE 4: Bright photos get a big bonus... ---
+
+        if (luminanceScore > 240.0) {
+
+          score -= 100; // Doubled bonus
+
+        }
+
+    
+
+        // --- RULE 5: ...unless they are documents ---
+
+        // This penalty is large enough to overwhelm the brightness bonus.
+
+        if (edgeDensityScore > 0.08) {
+
+          score += 300; // Doubled
+
+        }
+
+        
+
+        if (kDebugMode) {
+
+          print("Photo [${md5Hash.substring(0, 6)}...]: Final Score = ${score} (Blur: $blurScore, Lum: $luminanceScore, Entropy: $entropyScore, Edges: $edgeDensityScore, isSS: $isFromScreenshotAlbum)");
+
+        }
+
+        
+
+        return score;
+
+      }}
 
 
 //##############################################################################
@@ -97,15 +139,6 @@ class PhotoAnalysisResult {
 //##############################################################################
 
 class PhotoAnalyzer {
-
-  // --- HASHING ---
-
-  /// Calculates a fast, cryptographic hash (MD5) of the file bytes.
-  /// Used for finding exact duplicates.
-  Future<String> calculateMd5Hash(File file) async {
-    final bytes = await file.readAsBytes();
-    return md5.convert(bytes).toString();
-  }
 
   /// ##########################################################################
   /// # PERCEPTUAL HASH (pHash) IMPLEMENTATION
@@ -223,20 +256,6 @@ class PhotoAnalyzer {
 
   // --- ON-DEVICE AI (PLACEHOLDERS) ---
 
-  /// Placeholder for running a TFLite model for face detection.
-  /// In a real implementation, you would use a package like `google_mlkit_face_detection`.
-  Future<int> _detectFaces(img.Image image) async {
-    // ---- REAL IMPLEMENTATION ----
-    // final inputImage = InputImage.fromBytes(bytes: img.encodeJpg(image), ...);
-    // final faceDetector = GoogleMlKit.vision.faceDetector();
-    // final faces = await faceDetector.processImage(inputImage);
-    // await faceDetector.close();
-    // return faces.length;
-    // ---- END REAL IMPLEMENTATION ----
-    
-    // For now, return a placeholder value.
-    return 0;
-  }
   
   /// Placeholder for running a TFLite model for aesthetic quality.
   /// You would use a package like `tflite_flutter` and a pre-trained MobileNetV3-based model.
@@ -259,48 +278,50 @@ class PhotoAnalyzer {
 
   /// Orchestrates the full analysis pipeline for a single photo.
   /// Designed to be run inside a Flutter `compute` Isolate.
-  Future<PhotoAnalysisResult> analyze(File photoFile) async {
+  Future<PhotoAnalysisResult> analyze(Uint8List imageBytes, {bool isFromScreenshotAlbum = false}) async {
+    if (kDebugMode) {
+      final hash = md5.convert(imageBytes).toString().substring(0, 6);
+      print("ANALYZE START for photo [$hash]...");
+    }
     // --- STAGE 0: Decode and Prepare Image ---
     // This is the most memory-intensive part. We do it once.
-    final imageBytes = await photoFile.readAsBytes();
     final originalImage = img.decodeImage(imageBytes);
     if (originalImage == null) {
-      throw Exception("Could not decode image: ${photoFile.path}");
+      throw Exception("Could not decode image");
     }
     
     // Create a smaller, grayscale version for fast heuristics. This is a KEY optimization.
-    final lowResGray = img.copyResize(originalImage, width: 128, height: 128, interpolation: img.Interpolation.average);
+    final lowResGray = img.copyResize(originalImage, width: 32, height: 32, interpolation: img.Interpolation.average);
     img.grayscale(lowResGray);
 
     // --- STAGE 1: Run Hashing & Fast Heuristics in Parallel ---
-    final md5Future = calculateMd5Hash(photoFile);
-    final pHashFuture = calculatePerceptualHash(lowResGray); // Use the pre-resized image
+    final md5Hash = md5.convert(imageBytes).toString();
+    final pHashFuture = calculatePerceptualHash(lowResGray); // Use the pre-resized image;
     final blurScore = _calculateLaplacianVariance(lowResGray);
     final lumAndEntropy = _calculateLuminanceAndEntropy(lowResGray);
     final edgeScore = _calculateEdgeDensity(lowResGray);
 
-    // --- STAGE 2: Run "Slower" AI Models in Parallel (using placeholders) ---
-    // In a real app, the full-resolution `originalImage` might be needed for the AI models.
-    final faceCountFuture = _detectFaces(originalImage); 
-    final aestheticScoreFuture = _getAestheticScore(originalImage);
+    // --- STAGE 2: AI Models DISABLED FOR PERFORMANCE ---
+    // Face detection has been disabled to significantly speed up the analysis process
+    // as requested by the user.
+    final aestheticScoreFuture = _getAestheticScore(originalImage); // This is just a placeholder
 
     // --- STAGE 3: Await All Results and Assemble ---
     final results = await Future.wait([
-      md5Future,
       pHashFuture,
-      faceCountFuture,
       aestheticScoreFuture,
     ]);
 
     return PhotoAnalysisResult(
-      md5Hash: results[0] as String,
-      pHash: results[1] as String,
+      md5Hash: md5Hash,
+      pHash: results[0] as String,
       blurScore: blurScore,
       luminanceScore: lumAndEntropy['luminance']!,
       entropyScore: lumAndEntropy['entropy']!,
       edgeDensityScore: edgeScore,
-      faceCount: results[2] as int,
-      aestheticScore: results[3] as double,
+      isFromScreenshotAlbum: isFromScreenshotAlbum,
+      faceCount: 0, // Face detection disabled
+      aestheticScore: results[1] as double,
     );
   }
 }

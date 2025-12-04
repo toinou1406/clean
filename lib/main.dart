@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'photo_cleaner_service.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shimmer/shimmer.dart';
 import 'permission_screen.dart';
 import 'full_screen_image_view.dart';
+import 'compression_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -121,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final Set<String> _ignoredPhotos = {};
   bool _isLoading = false;
   bool _hasScanned = false;
+  String _sortingMessage = "Sorting...";
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -158,9 +161,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _sortPhotos() async {
     setState(() {
       _isLoading = true;
-      _selectedPhotos = [];
-      _ignoredPhotos.clear();
+      _sortingMessage = "Sorting...";
     });
+    
+    // Give the UI time to build the first message
+    await Future.delayed(const Duration(milliseconds: 100));
+    if(mounted) setState(() => _sortingMessage = "it will take above 5 sec");
+
+    await Future.delayed(const Duration(seconds: 2));
+    if(mounted) setState(() => _sortingMessage = "finalyzing");
+
+
     _fadeController.reset();
     
     try {
@@ -170,13 +181,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         if (mounted) setState(() => _hasScanned = true);
       }
       
-      final photos = await _service.selectPhotosToDelete();
+      final photos = await _service.selectPhotosToDelete(excludedIds: _ignoredPhotos.toList());
       
       if (mounted) {
         // Handle case where no photos are returned
         if (photos.isEmpty && _hasScanned) {
              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('No deletable photos found!')),
+                const SnackBar(content: Text('No more deletable photos found! Try a new scan.')),
             );
         }
         setState(() {
@@ -251,6 +262,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final int photosToDeleteCount = _selectedPhotos.length - _ignoredPhotos.length;
+
     return Scaffold(
       body: Container(
         decoration: Platform.environment.containsKey('FLUTTER_TEST')
@@ -282,9 +295,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               
               // PHOTO GRID
               Expanded(
-                child: _isLoading
-                    ? const LoadingState()
-                    : _selectedPhotos.isEmpty
+                child: _selectedPhotos.isEmpty && !_isLoading
                         ? const EmptyState()
                         : FadeTransition(
                             opacity: _fadeAnimation,
@@ -311,33 +322,54 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               // ACTION BUTTONS
               Padding(
                 padding: const EdgeInsets.all(20),
-                child: _selectedPhotos.isEmpty
-                    ? ActionButton(
-                        label: 'Sort',
-                        icon: Icons.sort,
-                        onPressed: _isLoading ? null : _sortPhotos,
-                      )
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: ActionButton(
-                              label: 'Re-sort',
-                              icon: Icons.refresh,
-                              onPressed: _isLoading ? null : _sortPhotos,
-                              backgroundColor: Colors.grey[700],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ActionButton(
-                              label: 'Delete',
-                              icon: Icons.delete_forever,
-                              onPressed: _isLoading ? null : _deletePhotos,
-                              backgroundColor: Colors.red[800],
-                            ),
-                          ),
-                        ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!_isLoading) ...[
+                      ActionButton(
+                        label: 'Compress Photos',
+                        icon: Icons.compress,
+                        backgroundColor: Colors.indigo[700],
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const CompressionScreen()),
+                          );
+                        },
                       ),
+                      const SizedBox(height: 16),
+                    ],
+                    _isLoading
+                      ? SortingProgressIndicator(message: _sortingMessage)
+                      : _selectedPhotos.isEmpty
+                        ? ActionButton(
+                            label: 'Sort',
+                            icon: Icons.sort,
+                            onPressed: _sortPhotos,
+                          )
+                        : Row(
+                            children: [
+                              Expanded(
+                                child: ActionButton(
+                                  label: 'Re-sort',
+                                  icon: Icons.refresh,
+                                  onPressed: _sortPhotos,
+                                  backgroundColor: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: ActionButton(
+                                  label: 'Delete ($photosToDeleteCount)',
+                                  icon: Icons.delete_forever,
+                                  onPressed: photosToDeleteCount > 0 ? _deletePhotos : null,
+                                  backgroundColor: photosToDeleteCount > 0 ? Colors.red[800] : Colors.grey[800],
+                                ),
+                              ),
+                            ],
+                          ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -404,10 +436,10 @@ class _PhotoCardState extends State<PhotoCard> with SingleTickerProviderStateMix
     super.initState();
     _swayController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 300),
     );
 
-    _swayAnimation = Tween<double>(begin: -0.02, end: 0.02).animate(
+    _swayAnimation = Tween<double>(begin: -0.2, end: 0.2).animate(
       CurvedAnimation(
         parent: _swayController,
         curve: Curves.easeInOut,
@@ -472,34 +504,36 @@ class _PhotoCardState extends State<PhotoCard> with SingleTickerProviderStateMix
           child: Stack(
             fit: StackFit.expand,
             children: [
-              ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  widget.isIgnored ? Colors.grey : Colors.transparent,
-                  BlendMode.saturation,
-                ),
-                child: FutureBuilder(
-                  future: widget.photo.asset.thumbnailDataWithSize(const ThumbnailSize(300, 300)),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData) {
-                      return Image.memory(snapshot.data!, fit: BoxFit.cover);
-                    }
-                    return const Center(child: CircularProgressIndicator());
-                  },
-                ),
+              FutureBuilder(
+                future: widget.photo.asset.thumbnailDataWithSize(const ThumbnailSize(300, 300)),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return Image.memory(snapshot.data!, fit: BoxFit.cover);
+                  }
+                  return const Center(child: CircularProgressIndicator());
+                },
               ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(153),
-                    borderRadius: BorderRadius.circular(20),
+              if (widget.isIgnored)
+                Container(
+                  color: Colors.green.withAlpha((255 * 0.5).round()),
+                  child: Center(
+                    child: Text(
+                      'KEEP',
+                      style: GoogleFonts.oswald(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        shadows: [
+                          const Shadow(
+                            blurRadius: 10.0,
+                            color: Colors.black,
+                            offset: Offset(2.0, 2.0),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  // Explicitly use the finalScore from the new analysis object
-                  child: Text('${widget.photo.analysis.finalScore.toInt()}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
-              ),
             ],
           ),
         ),
@@ -532,19 +566,77 @@ class ActionButton extends StatelessWidget {
   }
 }
 
-class LoadingState extends StatelessWidget {
-  const LoadingState({super.key});
+class SortingProgressIndicator extends StatefulWidget {
+  final String message;
+  const SortingProgressIndicator({super.key, required this.message});
+
+  @override
+  State<SortingProgressIndicator> createState() => _SortingProgressIndicatorState();
+}
+
+class _SortingProgressIndicatorState extends State<SortingProgressIndicator> with TickerProviderStateMixin {
+  late AnimationController _controller;
+  double _progress = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..addListener(() {
+      if (mounted) {
+        setState(() {
+          _progress = _controller.value;
+        });
+      }
+    });
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(strokeWidth: 6),
-          const SizedBox(height: 24),
-          Text('Analyzing Photos...', style: Theme.of(context).textTheme.titleLarge),
-        ],
+    return SizedBox(
+      height: 60,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12.0),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // The progress bar background and shimmer effect
+            Stack(
+              children: [
+                Container(color: Colors.grey[800]), // Background
+                FractionallySizedBox(
+                  widthFactor: _progress,
+                  alignment: Alignment.centerLeft,
+                  child: Shimmer.fromColors(
+                    baseColor: Colors.deepPurple,
+                    highlightColor: Colors.purple.shade300,
+                    child: Container(color: Colors.white), // Shimmer needs a solid child
+                  ),
+                ),
+              ],
+            ),
+            // The text on top
+            Text(
+              widget.message,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                shadows: [
+                  const Shadow(blurRadius: 4.0, color: Colors.black87, offset: Offset(1,1)),
+                ],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
