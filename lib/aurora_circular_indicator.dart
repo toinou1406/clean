@@ -123,12 +123,11 @@ class _AuroraPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..shader = SweepGradient(
         colors: const [
+          Color(0xFF00FFA3), // Ethereal Green (starts here)
           Color(0xFF00D4FF), // Deep Cyan
-          Color(0xFF00FFA3), // Ethereal Green
-          Color(0xFFFF00E5), // Mystic Magenta
-          Color(0xFF00D4FF), // Loop back to Cyan
+          Color(0xFF00FFA3), // Ethereal Green (ends here, creating a loop)
         ],
-        stops: const [0.0, 0.3, 0.6, 1.0],
+        stops: const [0.0, 0.5, 1.0], // Green at both ends, Cyan in the middle
         transform: GradientRotation(rotation),
         tileMode: TileMode.repeated,
       ).createShader(rect);
