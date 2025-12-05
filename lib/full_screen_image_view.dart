@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
-import 'photo_cleaner_service.dart'; // To get PhotoResult
-import 'main.dart'; // To get ActionButton
+
+// Aurora & Custom Widgets
+import 'photo_cleaner_service.dart'; 
+import 'main.dart'; // For ActionButton colors
 
 class FullScreenImageView extends StatefulWidget {
   final List<PhotoResult> photos;
@@ -37,7 +39,6 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: _currentIndex);
-    // Use immersive mode for a cleaner look
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
   }
 
@@ -45,28 +46,23 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
   void dispose() {
     _pageController.dispose();
     _isZoomed.dispose();
-    // Restore system UI when leaving
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
   void _onPageChanged(int index) {
     _isZoomed.value = false;
-    setState(() {
-      _currentIndex = index;
-    });
+    setState(() => _currentIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
     final currentPhotoId = widget.photos[_currentIndex].asset.id;
     final isKept = widget.ignoredPhotos.contains(currentPhotoId);
-    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: darkCharcoal,
       body: GestureDetector(
-        // Allow swiping down to dismiss the view
         onVerticalDragEnd: (details) {
           if (!_isZoomed.value && (details.primaryVelocity ?? 0) > 250) {
             Navigator.of(context).pop();
@@ -80,76 +76,60 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
               builder: (context, index) {
                 final asset = widget.photos[index].asset;
                 return PhotoViewGalleryPageOptions.customChild(
-                  child: PhotoPage(
-                    key: ValueKey(asset.id),
-                    asset: asset,
-                    isZoomedNotifier: _isZoomed,
-                  ),
+                  child: PhotoPage(key: ValueKey(asset.id), asset: asset, isZoomedNotifier: _isZoomed),
                   heroAttributes: PhotoViewHeroAttributes(tag: asset.id),
                 );
               },
               onPageChanged: _onPageChanged,
-              backgroundDecoration: BoxDecoration(color: theme.scaffoldBackgroundColor),
+              backgroundDecoration: const BoxDecoration(color: darkCharcoal),
               scrollPhysics: const BouncingScrollPhysics(),
-              loadingBuilder: (context, event) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+              loadingBuilder: (context, event) => const Center(child: CircularProgressIndicator(color: etherealGreen)),
             ),
             // Top Gradient and App Bar
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [theme.scaffoldBackgroundColor.withOpacity(0.8), Colors.transparent],
-                  ),
-                ),
-                child: SafeArea(
-                  child: AppBar(
-                    backgroundColor: Colors.transparent,
-                    elevation: 0,
-                    leading: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
-                    title: Text(
-                      '${_currentIndex + 1} of ${widget.photos.length}',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                    centerTitle: true,
-                  ),
+            _buildGradientOverlay(
+              child: SafeArea(
+                child: AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.of(context).pop()),
+                  title: Text('${_currentIndex + 1} of ${widget.photos.length}', style: Theme.of(context).textTheme.titleMedium),
+                  centerTitle: true,
                 ),
               ),
             ),
             // Bottom Action Button with Gradient
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [theme.scaffoldBackgroundColor.withOpacity(0.8), Colors.transparent],
-                  ),
-                ),
+            _buildGradientOverlay(
+              isBottom: true,
+              child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 30, 20, 40),
                 child: ActionButton(
                   label: isKept ? 'Kept' : 'Keep',
-                  onPressed: () {
-                    setState(() {
-                      widget.onToggleKeep(currentPhotoId);
-                    });
-                  },
-                  isPrimary: !isKept, // Solid white for 'Keep', outlined for 'Kept'
+                  onPressed: () => setState(() => widget.onToggleKeep(currentPhotoId)),
+                  isPrimary: !isKept,
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGradientOverlay({required Widget child, bool isBottom = false}) {
+    return Positioned(
+      top: isBottom ? null : 0,
+      bottom: isBottom ? 0 : null,
+      left: 0,
+      right: 0,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: isBottom ? Alignment.bottomCenter : Alignment.topCenter,
+            end: isBottom ? Alignment.topCenter : Alignment.bottomCenter,
+            colors: [darkCharcoal.withOpacity(0.8), Colors.transparent],
+          ),
+        ),
+        child: child,
       ),
     );
   }
@@ -159,11 +139,7 @@ class PhotoPage extends StatefulWidget {
   final AssetEntity asset;
   final ValueNotifier<bool> isZoomedNotifier;
 
-  const PhotoPage({
-    super.key,
-    required this.asset,
-    required this.isZoomedNotifier,
-  });
+  const PhotoPage({super.key, required this.asset, required this.isZoomedNotifier});
 
   @override
   State<PhotoPage> createState() => _PhotoPageState();
@@ -184,7 +160,6 @@ class _PhotoPageState extends State<PhotoPage> {
     try {
       final thumb = await widget.asset.thumbnailDataWithSize(const ThumbnailSize(300, 300));
       if (mounted) setState(() => _thumbnailData = thumb);
-
       final file = await widget.asset.file;
       if (mounted) setState(() => _file = file);
     } catch (e) {
@@ -202,11 +177,7 @@ class _PhotoPageState extends State<PhotoPage> {
             const Icon(Icons.error_outline, color: Colors.red, size: 60),
             const SizedBox(height: 16),
             Text('Failed to load image', style: Theme.of(context).textTheme.titleMedium),
-            if (kDebugMode)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(_loadError.toString(), style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
-              ),
+            if (kDebugMode) Padding(padding: const EdgeInsets.all(16.0), child: Text(_loadError.toString(), style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center)),
           ],
         ),
       );
@@ -217,14 +188,12 @@ class _PhotoPageState extends State<PhotoPage> {
         imageProvider: FileImage(_file!),
         minScale: PhotoViewComputedScale.contained,
         maxScale: PhotoViewComputedScale.covered * 2.5,
-        scaleStateChangedCallback: (state) {
-          widget.isZoomedNotifier.value = state != PhotoViewScaleState.initial;
-        },
+        scaleStateChangedCallback: (state) => widget.isZoomedNotifier.value = state != PhotoViewScaleState.initial,
         loadingBuilder: (context, event) {
           if (_thumbnailData != null) {
             return PhotoView(imageProvider: MemoryImage(_thumbnailData!));
           }
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
+          return const Center(child: CircularProgressIndicator(color: etherealGreen));
         },
       );
     }
@@ -233,6 +202,6 @@ class _PhotoPageState extends State<PhotoPage> {
       return PhotoView(imageProvider: MemoryImage(_thumbnailData!));
     }
 
-    return const Center(child: CircularProgressIndicator(color: Colors.white));
+    return const Center(child: CircularProgressIndicator(color: etherealGreen));
   }
 }

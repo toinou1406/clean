@@ -1,51 +1,33 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'aurora_widgets.dart';
 
 class SortingIndicatorBar extends StatefulWidget {
   final String message;
-  final Color neonColor;
 
-  const SortingIndicatorBar({
-    super.key,
-    required this.message,
-    required this.neonColor,
-  });
+  const SortingIndicatorBar({super.key, required this.message});
 
   @override
   State<SortingIndicatorBar> createState() => _SortingIndicatorBarState();
 }
 
 class _SortingIndicatorBarState extends State<SortingIndicatorBar>
-    with TickerProviderStateMixin {
-  late AnimationController _progressController;
-  late AnimationController _glowController;
-  late Animation<double> _glowAnimation;
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    // Progress animation to create a back-and-forth scanning effect
-    _progressController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
-    // Glow animation for a subtle pulsing effect
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-
-    _glowAnimation = Tween<double>(begin: 4.0, end: 12.0).animate(
-      CurvedAnimation(parent: _glowController, curve: Curves.easeInQuad),
-    );
+    )..repeat();
   }
 
   @override
   void dispose() {
-    _progressController.dispose();
-    _glowController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -55,57 +37,28 @@ class _SortingIndicatorBarState extends State<SortingIndicatorBar>
       height: 60,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: widget.neonColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: widget.neonColor.withOpacity(0.3)),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(11),
         child: Stack(
+          fit: StackFit.expand,
           children: [
-            // Animated Gradient for the scanning effect
-            AnimatedBuilder(
-              animation: _progressController,
-              builder: (context, child) {
-                return Positioned.fill(
-                  child: FractionallySizedBox(
-                    widthFactor: 1.5, // Make it wider to animate across
-                    alignment: Alignment(_progressController.value * 2 - 1, 0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            widget.neonColor.withOpacity(0.4),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.2, 0.5, 0.8],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-            // Pulsing Glow Effect
-            Center(
-              child: AnimatedBuilder(
-                animation: _glowAnimation,
-                builder: (context, child) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      boxShadow: [
-                        BoxShadow(
-                          color: widget.neonColor.withOpacity(0.3),
-                          blurRadius: _glowAnimation.value,
-                          spreadRadius: _glowAnimation.value / 2,
-                        ),
-                      ],
-                    ),
-                  );
-                },
+            // Animated Aurora Background
+            CustomPaint(
+              painter: AuroraPainter(
+                animation: _controller,
+                colors: const [
+                  Color(0xFF00FFA3), // Ethereal Green
+                  Color(0xFF00D4FF), // Deep Cyan
+                  Color(0xFF00FFA3), // Ethereal Green
+                ],
+                stops: const [0.0, 0.5, 1.0],
               ),
             ),
+            // Dark overlay for text readability
+            Container(color: Colors.black.withOpacity(0.3)),
             // Message Text
             Center(
               child: Text(

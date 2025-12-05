@@ -1,4 +1,5 @@
 
+import 'dart:developer' as developer;
 import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:disk_space_plus/disk_space_plus.dart';
@@ -28,38 +29,43 @@ class IsolateData {
 }
 
 /// Top-level function executed in a separate isolate.
-/// This function is the entry point for the background processing.
+/// This function is now wrapped in a robust try-catch block to prevent any crash.
 Future<dynamic> analyzePhotoInIsolate(IsolateData isolateData) async {
-    // Initialize platform channels for this isolate
+  try {
+    // Initialize platform channels for this isolate.
     BackgroundIsolateBinaryMessenger.ensureInitialized(isolateData.token);
 
     final String assetId = isolateData.assetId;
     final AssetEntity? asset = await AssetEntity.fromId(assetId);
     if (asset == null) {
-        return null;
+      return null;
     }
 
-    // Get thumbnail data instead of original bytes to prevent OutOfMemoryErrors.
-    // Using a minimal thumbnail (32x32) to absolutely minimize memory usage.
     final Uint8List? imageBytes = await asset.thumbnailDataWithSize(const ThumbnailSize(64, 64));
     if (imageBytes == null) {
-        return null;
+      return null;
     }
 
-    // The new analyzer performs all heavy lifting.
     final analyzer = PhotoAnalyzer();
-    try {
-        // Call the new byte-based analysis method.
-        final analysisResult = await analyzer.analyze(
-          imageBytes, 
-          isFromScreenshotAlbum: isolateData.isFromScreenshotAlbum,
-        );
-        return IsolateAnalysisResult(asset.id, analysisResult);
-    } catch (e) {
-        // If a single analysis fails, we don't want to crash the whole batch.
-        return null;
-    }
+    final analysisResult = await analyzer.analyze(
+      imageBytes,
+      isFromScreenshotAlbum: isolateData.isFromScreenshotAlbum,
+    );
+    return IsolateAnalysisResult(asset.id, analysisResult);
+
+  } catch (e, s) {
+    // Log the specific error from the isolate for future debugging.
+    developer.log(
+      'Analysis failed for asset ${isolateData.assetId}',
+      name: 'photo_cleaner.isolate',
+      error: e,
+      stackTrace: s,
+    );
+    // Return null to signify that this specific photo failed, allowing the batch to continue.
+    return null;
+  }
 }
+
 
 //##############################################################################
 //# 2. MAIN SERVICE & DATA MODELS
@@ -138,23 +144,17 @@ class PhotoCleanerService {
     assetsToAnalyze.shuffle();
     
     _allPhotos.clear();
-    // _seenPhotoIds.clear(); // We should not clear this here, so re-sort works as expected
 
     final rootIsolateToken = RootIsolateToken.instance;
     if (rootIsolateToken == null) {
-      // This is a critical failure, we cannot proceed.
       throw Exception("Failed to get RootIsolateToken. Make sure you are on Flutter 3.7+ and running on the main isolate.");
     }
     
-    // Create futures with the new IsolateData structure
     final analysisFutures = assetsToAnalyze.map((asset) {
         final bool isScreenshot = screenshotAssetIds.contains(asset.id);
         return compute(analyzePhotoInIsolate, IsolateData(rootIsolateToken, asset.id, isScreenshot));
     }).toList();
 
-
-    // --- BATCH PROCESSING ---
-    // This is critical for performance and memory management.
     final List<IsolateAnalysisResult> analysisResults = [];
     const batchSize = 12;
 
@@ -163,49 +163,35 @@ class PhotoCleanerService {
         final batch = analysisFutures.sublist(i, end);
         final List<dynamic> batchResults = await Future.wait(batch);
 
-        // New error handling to get logs from the isolate
         for (final result in batchResults) {
           if (result is IsolateAnalysisResult) {
             analysisResults.add(result);
           }
         }
-        // Manually release photo_manager's cache to combat memory leaks.
         await PhotoManager.clearFileCache();
-        
-        // Optional: Provide progress updates to the UI here.
     }
 
-    // Create a quick lookup map for assets by ID.
     final Map<String, AssetEntity> assetMap = {for (var asset in assetsToAnalyze) asset.id: asset};
 
-    // Populate the final list of results.
     _allPhotos.addAll(
         analysisResults.where((r) => assetMap.containsKey(r.assetId)).map((r) => PhotoResult(assetMap[r.assetId]!, r.analysis))
     );
   }
 
-  /// ##########################################################################
-  /// # NEW SELECTION ALGORITHM
-  /// ##########################################################################
   Future<List<PhotoResult>> selectPhotosToDelete({List<String> excludedIds = const []}) async {
-    // User's proposed logic: Always show the 12 worst photos based on score.
     List<PhotoResult> candidates = _allPhotos
         .where((p) => !excludedIds.contains(p.asset.id) && !_seenPhotoIds.contains(p.asset.id))
         .toList();
 
-    // Sort all candidates by their score in descending order (worst first).
     candidates.sort((a, b) => b.score.compareTo(a.score));
 
-    // Take the top 24.
     final selected = candidates.take(24).toList();
 
-    // Add these to the list of photos we've already seen.
     _seenPhotoIds.addAll(selected.map((p) => p.asset.id));
     
     return selected;
   }
 
-  /// Deletes the selected photos from the device.
   Future<List<String>> deletePhotos(List<PhotoResult> photos) async {
     if (photos.isEmpty) return [];
     final ids = photos.map((p) => p.asset.id).toList();
@@ -213,7 +199,6 @@ class PhotoCleanerService {
     return deletedIds;
   }
 
-  /// Deletes all photos within the provided list of albums.
   Future<void> deleteAlbums(List<AssetPathEntity> albums) async {
     if (albums.isEmpty) return;
 
@@ -228,7 +213,6 @@ class PhotoCleanerService {
     }
   }
 
-  /// Gets storage information from the device.
   Future<StorageInfo> getStorageInfo() async {
     final double total = await _diskSpace.getTotalDiskSpace ?? 0.0;
     final double free = await _diskSpace.getFreeDiskSpace ?? 0.0;
@@ -242,6 +226,7 @@ class PhotoCleanerService {
     );
   }
 }
+
 //##############################################################################
 //# 3. UTILITY CLASSES
 //##############################################################################

@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'aurora_widgets.dart';
 
 class SavedSpaceIndicator extends StatelessWidget {
   final double spaceSaved;
@@ -18,26 +19,20 @@ class SavedSpaceIndicator extends StatelessWidget {
     double progress = (spaceSaved / maxMonthlyGoal).clamp(0.0, 1.0);
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start, // Align text to the left
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(child: Text('Space Saved (This Month)', style: Theme.of(context).textTheme.titleLarge)),
-            Flexible(child: Text(formattedSpaceSaved, style: Theme.of(context).textTheme.titleLarge)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: progress,
-            minHeight: 12,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              Colors.green.shade400,
-            ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0), // Small padding for alignment
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Space Saved (This Month)', style: Theme.of(context).textTheme.titleMedium),
+              Text(formattedSpaceSaved, style: Theme.of(context).textTheme.titleMedium),
+            ],
           ),
         ),
+        const SizedBox(height: 12),
+        AuroraLinearProgressIndicator(progress: progress),
       ],
     );
   }
