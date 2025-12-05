@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'main.dart'; // For ActionButton
+import 'main.dart'; // For ActionButton & Aurora colors
+import 'aurora_widgets.dart'; // For AuroraPainter
 
 class PermissionScreen extends StatefulWidget {
   final VoidCallback onPermissionGranted;
@@ -15,9 +16,10 @@ class PermissionScreen extends StatefulWidget {
 }
 
 class _PermissionScreenState extends State<PermissionScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   bool _isLoading = false;
   late AnimationController _animationController;
+  late AnimationController _auroraController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
@@ -28,6 +30,11 @@ class _PermissionScreenState extends State<PermissionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _auroraController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+
     _fadeAnimation =
         CurvedAnimation(parent: _animationController, curve: Curves.easeIn);
     _slideAnimation = Tween<Offset>(
@@ -41,6 +48,7 @@ class _PermissionScreenState extends State<PermissionScreen>
   @override
   void dispose() {
     _animationController.dispose();
+    _auroraController.dispose();
     super.dispose();
   }
 
@@ -88,18 +96,31 @@ class _PermissionScreenState extends State<PermissionScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.shield_moon_outlined, // A more elegant icon
-                    size: 100,
-                    color: Colors.white.withOpacity(0.8),
+                  SizedBox(
+                    width: 120,
+                    height: 120,
+                    child: CustomPaint(
+                      painter: AuroraPainter(
+                        animation: _auroraController,
+                        colors: const [etherealGreen, deepCyan, etherealGreen],
+                        stops: const [0.2, 0.6, 1.0],
+                        isAnimating: true,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.photo_library_outlined,
+                          size: 60,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 32),
                   Text(
                     'Privacy First',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.displayLarge?.copyWith(
-                      color: Colors.white,
-                    ),
+                    style: theme.textTheme.displayLarge?.copyWith(color: Colors.white),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -111,7 +132,7 @@ class _PermissionScreenState extends State<PermissionScreen>
                     ),
                   ),
                   const SizedBox(height: 48),
-                  _buildActionButton(theme),
+                  _buildActionButton(),
                 ],
               ),
             ),
@@ -121,22 +142,21 @@ class _PermissionScreenState extends State<PermissionScreen>
     );
   }
 
-  Widget _buildActionButton(ThemeData theme) {
+  Widget _buildActionButton() {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       transitionBuilder: (child, animation) {
         return ScaleTransition(scale: animation, child: child);
       },
       child: _isLoading
-          ? CircularProgressIndicator(
-              key: const ValueKey('loader'),
-              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+          ? const CircularProgressIndicator(
+              key: ValueKey('loader'),
+              valueColor: AlwaysStoppedAnimation<Color>(etherealGreen),
             )
           : ActionButton(
               key: const ValueKey('button'),
               label: 'Grant Access & Continue',
               onPressed: _requestPermission,
-              isPrimary: true, // Use the primary (white) button style
             ),
     );
   }
