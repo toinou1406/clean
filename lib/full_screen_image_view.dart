@@ -1,23 +1,15 @@
-import 'dart:io';
-import 'package:fastclean/action_button.dart';
-import 'package:fastclean/constants.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:photo_manager/photo_manager.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:photo_view/photo_view_gallery.dart';
+import 'package:fastclean/photo_analyzer.dart';
 import 'package:fastclean/l10n/app_localizations.dart';
-
-// Aurora & Custom Widgets
-import 'aurora_widgets.dart';
-import 'photo_cleaner_service.dart';
+import 'package:flutter/services.dart';
 
 class FullScreenImageView extends StatefulWidget {
   final List<PhotoResult> photos;
   final int initialIndex;
   final Set<String> ignoredPhotos;
-  final Function(String) onToggleKeep;
+  final void Function(String) onToggleKeep;
 
   const FullScreenImageView({
     super.key,
@@ -32,217 +24,156 @@ class FullScreenImageView extends StatefulWidget {
 }
 
 class _FullScreenImageViewState extends State<FullScreenImageView> {
-  late PageController _pageController;
+  late final PageController _pageController;
   late int _currentIndex;
-  final ValueNotifier<bool> _isZoomed = ValueNotifier(false);
+  bool _isUiVisible = true;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _pageController = PageController(initialPage: _currentIndex);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    _isZoomed.dispose();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    super.dispose();
+    _pageController = PageController(initialPage: widget.initialIndex);
   }
 
   void _onPageChanged(int index) {
-    _isZoomed.value = false;
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
+  void _toggleUiVisibility() {
+    setState(() {
+      _isUiVisible = !_isUiVisible;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentPhotoId = widget.photos[_currentIndex].asset.id;
-    final isKept = widget.ignoredPhotos.contains(currentPhotoId);
+    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final currentPhoto = widget.photos[_currentIndex];
+    final isKept = widget.ignoredPhotos.contains(currentPhoto.asset.id);
 
     return Scaffold(
-      backgroundColor: darkCharcoal,
-      body: GestureDetector(
-        onDoubleTap: () => setState(() => widget.onToggleKeep(currentPhotoId)),
-        onLongPress: () => setState(() => widget.onToggleKeep(currentPhotoId)),
-        onVerticalDragEnd: (details) {
-          if (!_isZoomed.value && (details.primaryVelocity ?? 0) > 250) {
-            Navigator.of(context).pop();
-          }
-        },
-        child: Stack(
-          children: [
-            PhotoViewGallery.builder(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // The main photo gallery
+          GestureDetector(
+            onTap: _toggleUiVisibility,
+            child: PhotoViewGallery.builder(
               pageController: _pageController,
               itemCount: widget.photos.length,
               builder: (context, index) {
-                final asset = widget.photos[index].asset;
-                return PhotoViewGalleryPageOptions.customChild(
-                  child: PhotoPage(key: ValueKey(asset.id), asset: asset, isZoomedNotifier: _isZoomed),
-                  heroAttributes: PhotoViewHeroAttributes(tag: asset.id),
+                final photo = widget.photos[index];
+                return PhotoViewGalleryPageOptions(
+                  imageProvider: AssetEntityImageProvider(photo.asset, isOriginal: true),
+                  minScale: PhotoViewComputedScale.contained,
+                  maxScale: PhotoViewComputedScale.covered * 2.5,
+                  initialScale: PhotoViewComputedScale.contained,
+                  heroAttributes: PhotoViewHeroAttributes(tag: photo.asset.id),
                 );
               },
               onPageChanged: _onPageChanged,
-              backgroundDecoration: const BoxDecoration(color: darkCharcoal),
-              scrollPhysics: const BouncingScrollPhysics(),
-              loadingBuilder: (context, event) => const Center(child: CircularProgressIndicator(color: etherealGreen)),
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
             ),
-
-            // Keep UI Overlay
-            Positioned.fill(
-              child: AnimatedOpacity(
-                opacity: isKept ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 300),
-                // Use IgnorePointer to prevent the overlay from blocking gestures to the PhotoView
-                child: IgnorePointer(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      AuroraBorder(
-                        borderRadius: BorderRadius.zero,
-                        borderWidth: 4.0,
-                        child: Container(),
-                      ),
-                      Center(
-                        child: Text(
-                          l10n.keep,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                            shadows: [
-                              Shadow(blurRadius: 10.0, color: Colors.black54, offset: Offset(2,2)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Top Gradient and App Bar
-            _buildGradientOverlay(
-              child: SafeArea(
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.of(context).pop()),
-                  title: Text(l10n.fullScreenTitle(_currentIndex + 1, widget.photos.length), style: Theme.of(context).textTheme.titleMedium),
-                  centerTitle: true,
-                ),
-              ),
-            ),
-            // Bottom Action Button with Gradient
-            _buildGradientOverlay(
-              isBottom: true,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 30, 20, 40),
-                child: ActionButton(
-                  label: isKept ? l10n.kept : l10n.keep,
-                  icon: isKept ? Icons.check_circle_outline : Icons.delete_outline,
-                  onPressed: () => setState(() => widget.onToggleKeep(currentPhotoId)),
-                  isPrimary: !isKept,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGradientOverlay({required Widget child, bool isBottom = false}) {
-    return Positioned(
-      top: isBottom ? null : 0,
-      bottom: isBottom ? 0 : null,
-      left: 0,
-      right: 0,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: isBottom ? Alignment.bottomCenter : Alignment.topCenter,
-            end: isBottom ? Alignment.topCenter : Alignment.bottomCenter,
-            colors: [darkCharcoal.withAlpha(204), Colors.transparent],
           ),
-        ),
-        child: child,
+
+          // Animated UI elements (Header and Footer)
+          _buildAnimatedUi(theme, l10n, isKept, currentPhoto),
+        ],
       ),
     );
   }
-}
 
-class PhotoPage extends StatefulWidget {
-  final AssetEntity asset;
-  final ValueNotifier<bool> isZoomedNotifier;
+  Widget _buildAnimatedUi(ThemeData theme, AppLocalizations l10n, bool isKept, PhotoResult currentPhoto) {
+    return AnimatedOpacity(
+      opacity: _isUiVisible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 250),
+      child: Stack(
+        children: [
+          // Top Bar (Header)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+              child: AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                title: Text(
+                  "${_currentIndex + 1} / ${widget.photos.length}",
+                  style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+                centerTitle: true,
+              ),
+            ),
+          ),
 
-  const PhotoPage({super.key, required this.asset, required this.isZoomedNotifier});
-
-  @override
-  State<PhotoPage> createState() => _PhotoPageState();
-}
-
-class _PhotoPageState extends State<PhotoPage> {
-  File? _file;
-  Uint8List? _thumbnailData;
-  dynamic _loadError;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
+          // Bottom Action Bar
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildKeepButton(l10n, theme, isKept, currentPhoto),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
-  Future<void> _loadData() async {
-    try {
-      final thumb = await widget.asset.thumbnailDataWithSize(const ThumbnailSize(300, 300));
-      if (mounted) setState(() => _thumbnailData = thumb);
-      final file = await widget.asset.file;
-      if (mounted) setState(() => _file = file);
-    } catch (e) {
-      if (mounted) setState(() => _loadError = e);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loadError != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, color: Colors.red, size: 60),
-            const SizedBox(height: 16),
-            Text(AppLocalizations.of(context)!.failedToLoadImage, style: Theme.of(context).textTheme.titleMedium),
-            if (kDebugMode) Padding(padding: const EdgeInsets.all(16.0), child: Text(_loadError.toString(), style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center)),
-          ],
-        ),
-      );
-    }
-
-    if (_file != null) {
-      return PhotoView(
-        imageProvider: FileImage(_file!),
-        minScale: PhotoViewComputedScale.contained,
-        maxScale: PhotoViewComputedScale.covered * 2.5,
-        scaleStateChangedCallback: (state) => widget.isZoomedNotifier.value = state != PhotoViewScaleState.initial,
-        loadingBuilder: (context, event) {
-          if (_thumbnailData != null) {
-            return PhotoView(imageProvider: MemoryImage(_thumbnailData!));
-          }
-          return const Center(child: CircularProgressIndicator(color: etherealGreen));
-        },
-      );
-    }
-
-    if (_thumbnailData != null) {
-      return PhotoView(imageProvider: MemoryImage(_thumbnailData!));
-    }
-
-    return const Center(child: CircularProgressIndicator(color: etherealGreen));
+  Widget _buildKeepButton(AppLocalizations l10n, ThemeData theme, bool isKept, PhotoResult currentPhoto) {
+    return ElevatedButton.icon(
+      icon: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+        child: isKept
+            ? Icon(Icons.check_circle_rounded, key: const ValueKey('kept'), color: theme.colorScheme.primary)
+            : Icon(Icons.radio_button_unchecked_rounded, key: const ValueKey('not_kept')),
+      ),
+      label: Text(
+        isKept ? l10n.keep : l10n.keep, // Text remains the same, but style could change
+        style: theme.elevatedButtonTheme.style?.textStyle?.resolve({}),
+      ),
+      style: ElevatedButton.styleFrom(
+        // A slightly different style for this specific context
+        backgroundColor: isKept ? theme.colorScheme.primary.withOpacity(0.15) : theme.colorScheme.surface.withOpacity(0.8),
+        foregroundColor: isKept ? theme.colorScheme.primary : Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        side: isKept ? BorderSide(color: theme.colorScheme.primary, width: 2) : BorderSide.none,
+        elevation: 0,
+      ),
+      onPressed: () {
+        HapticFeedback.lightImpact();
+        widget.onToggleKeep(currentPhoto.asset.id);
+      },
+    );
   }
 }

@@ -9,7 +9,7 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get privacyFirst => '隐私至上';
+  String get privacyFirst => '隐私第一';
 
   @override
   String get permissionScreenBody => 'FastClean 直接在您的设备上分析您的照片。任何内容都不会上传到服务器。';
@@ -18,34 +18,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get grantAccessContinue => '授予访问权限并继续';
 
   @override
-  String get homeScreenTitle => 'FastClean';
+  String get homeScreenTitle => '主页';
 
   @override
-  String get sortingMessageAnalyzing => '正在分析照片元数据...';
+  String get sortingMessageAnalyzing => '正在分析照片...';
 
   @override
-  String get sortingMessageBlurry => '正在检测模糊图像...';
+  String get sortingMessageBlurry => '查找模糊的照片...';
 
   @override
-  String get sortingMessageScreenshots => '正在搜索不良截图...';
+  String get sortingMessageScreenshots => '识别截图...';
 
   @override
-  String get sortingMessageDuplicates => '正在检查重复项...';
+  String get sortingMessageDuplicates => '检测重复项...';
 
   @override
-  String get sortingMessageScores => '正在计算照片分数...';
+  String get sortingMessageScores => '计算分数...';
 
   @override
   String get sortingMessageCompiling => '正在编译结果...';
 
   @override
-  String get sortingMessageRanking => '按“不良”程度对照片进行排名...';
+  String get sortingMessageRanking => '正在对您的照片进行排名...';
 
   @override
-  String get sortingMessageFinalizing => '正在完成照片选择...';
+  String get sortingMessageFinalizing => '正在完成...';
 
   @override
-  String get noMorePhotos => '找不到更多可删除的照片！';
+  String get noMorePhotos => '没有更多可整理的照片了！';
 
   @override
   String errorOccurred(String error) {
@@ -54,12 +54,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String photosDeleted(int count, String space) {
-    return '删除了 $count 张照片并节省了 $space';
+    return '$count 张照片已删除，节省了 $space！';
   }
 
   @override
   String errorDeleting(String error) {
-    return '删除照片时出错：$error';
+    return '删除时出错：$error';
   }
 
   @override
@@ -67,7 +67,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String delete(int count) {
-    return '删除 ($count)';
+    return '删除 $count';
   }
 
   @override
@@ -88,13 +88,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get keep => '保留';
 
   @override
-  String get failedToLoadImage => '无法加载图片';
+  String get failedToLoadImage => '加载图片失败';
 
   @override
-  String get couldNotDelete => '无法删除照片。请再试一次。';
+  String get couldNotDelete => '无法删除照片。请稍后再试。';
 
   @override
-  String get photoAccessRequired => '需要完整的照片访问权限。';
+  String get photoAccessRequired => '需要照片访问权限才能继续。';
 
   @override
   String get settings => '设置';
@@ -109,5 +109,5 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => 'FastClean';
 
   @override
-  String get chooseYourLanguage => '选择你的语言';
+  String get chooseYourLanguage => '选择您的语言';
 }

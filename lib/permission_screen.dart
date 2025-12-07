@@ -1,153 +1,140 @@
-import 'dart:async';
-import 'package:fastclean/action_button.dart';
-import 'package:fastclean/constants.dart';
 import 'package:flutter/material.dart';
-import 'package:photo_manager/photo_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:photo_manager/photo_manager.dart';
 import 'package:fastclean/l10n/app_localizations.dart';
-import 'aurora_widgets.dart'; // For AuroraPainter
+import 'package:fastclean/aurora_widgets.dart'; // For PulsingIcon
 
 class PermissionScreen extends StatefulWidget {
   final VoidCallback onPermissionGranted;
   final void Function(Locale) onLocaleChanged;
 
-  const PermissionScreen({super.key, required this.onPermissionGranted, required this.onLocaleChanged});
+  const PermissionScreen({
+    super.key,
+    required this.onPermissionGranted,
+    required this.onLocaleChanged,
+  });
 
   @override
   State<PermissionScreen> createState() => _PermissionScreenState();
 }
 
-class _PermissionScreenState extends State<PermissionScreen>
-    with TickerProviderStateMixin {
-  bool _isLoading = false;
-  late AnimationController _animationController;
-  late AnimationController _auroraController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  String _currentLanguageCode = 'en'; // Default language
+class _PermissionScreenState extends State<PermissionScreen> with SingleTickerProviderStateMixin {
+  String? _currentLanguageCode;
+  late AnimationController _fadeController;
 
   @override
   void initState() {
     super.initState();
-    _loadCurrentLanguage();
-    _animationController = AnimationController(
+    _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 800),
     );
-    _auroraController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
-
-    _fadeAnimation =
-        CurvedAnimation(parent: _animationController, curve: Curves.easeIn);
-    _slideAnimation = Tween<Offset>(
-            begin: const Offset(0, 0.2), end: Offset.zero)
-        .animate(CurvedAnimation(
-            parent: _animationController, curve: Curves.easeInOutCubic));
-
-    _animationController.forward();
+    // Set initial language from the system and start the fade-in animation.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeScreen();
+    });
   }
 
-  Future<void> _loadCurrentLanguage() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _currentLanguageCode = prefs.getString('language_code') ?? 'en';
-    });
+  Future<void> _initializeScreen() async {
+    if (mounted) {
+      final languageCode = Localizations.localeOf(context).languageCode;
+      setState(() {
+        _currentLanguageCode = languageCode;
+      });
+      _fadeController.forward();
+    }
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
-    _auroraController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
   Future<void> _requestPermission() async {
-    setState(() => _isLoading = true);
-
-    final result = await PhotoManager.requestPermissionExtend();
-
-    if (result.hasAccess) {
+    final PermissionState state = await PhotoManager.requestPermissionExtend();
+    if (state.hasAccess) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('permission_granted', true);
       widget.onPermissionGranted();
     } else {
+      // Optionally, show a dialog or a snackbar explaining why permission is needed.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(AppLocalizations.of(context)!.photoAccessRequired),
-            backgroundColor: Colors.red.shade700,
-            action: SnackBarAction(
-              label: AppLocalizations.of(context)!.settings,
-              textColor: Colors.white,
-              onPressed: () {
-                PhotoManager.openSetting();
-              },
-            ),
-          ),
+          SnackBar(content: Text(AppLocalizations.of(context)!.photoAccessRequired)),
         );
-        setState(() => _isLoading = false);
       }
+    }
+  }
+
+  void _changeLanguage(String languageCode) async {
+    if (_currentLanguageCode == languageCode) return;
+
+    final newLocale = Locale(languageCode);
+    widget.onLocaleChanged(newLocale);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('language_code', languageCode);
+    if (mounted) {
+      setState(() {
+        _currentLanguageCode = languageCode;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32.0),
+      // Use the NoiseBox for a consistent background texture
+      body: NoiseBox(
+        child: SafeArea(
           child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
+            opacity: _fadeController,
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    width: 120,
-                    height: 120,
-                    child: ClipOval(
-                      child: CustomPaint(
-                        painter: AuroraPainter(
-                          animation: _auroraController,
-                          colors: const [etherealGreen, deepCyan, etherealGreen],
-                          stops: const [0.2, 0.6, 1.0],
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.photo_library_outlined,
-                            size: 60,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
+                  const Spacer(flex: 2),
+                  // Pulsing icon for a modern, engaging feel
+                  PulsingIcon(
+                    icon: Icons.shield_outlined,
+                    color: theme.colorScheme.primary,
+                    size: 60,
                   ),
                   const SizedBox(height: 32),
                   Text(
-                    l10n.privacyFirst,
+                    l10n.permissionTitle,
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.displayLarge?.copyWith(color: Colors.white),
+                    style: theme.textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    l10n.permissionScreenBody,
+                    l10n.permissionDescription,
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white.withAlpha(179),
-                      height: 1.5,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      height: 1.6,
                     ),
                   ),
-                  const SizedBox(height: 48),
-                  _buildActionButton(),
-                  const SizedBox(height: 48),
-                  _buildLanguageSelector(),
+                  const Spacer(flex: 3),
+                  // The main action button
+                  ElevatedButton(
+                    onPressed: _requestPermission,
+                    style: theme.elevatedButtonTheme.style?.copyWith(
+                      padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 20)),
+                    ),
+                    child: Text(l10n.grantPermission),
+                  ),
+                  const SizedBox(height: 40),
+                  // Language selector at the bottom
+                  _buildLanguageSelector(theme, l10n),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -157,65 +144,42 @@ class _PermissionScreenState extends State<PermissionScreen>
     );
   }
 
-  Widget _buildLanguageSelector() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildLanguageSelector(ThemeData theme, AppLocalizations l10n) {
+    // Ensure _currentLanguageCode is not null before building
+    if (_currentLanguageCode == null) return const SizedBox.shrink();
+
+    return Column(
       children: [
-        _buildFlag('en', '🇬🇧', _currentLanguageCode == 'en'),
-        const SizedBox(width: 24),
-        _buildFlag('es', '🇪🇸', _currentLanguageCode == 'es'),
-        const SizedBox(width: 24),
-        _buildFlag('fr', '🇫🇷', _currentLanguageCode == 'fr'),
-        const SizedBox(width: 24),
-        _buildFlag('zh', '🇨🇳', _currentLanguageCode == 'zh'),
-      ],
-    );
-  }
-
-  Widget _buildFlag(String languageCode, String flag, bool isSelected) {
-    return GestureDetector(
-      onTap: () async {
-        final newLocale = Locale(languageCode);
-        widget.onLocaleChanged(newLocale);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('language_code', languageCode);
-        setState(() {
-          _currentLanguageCode = languageCode;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: isSelected
-            ? BoxDecoration(
-                border: Border.all(color: etherealGreen, width: 2),
-                borderRadius: BorderRadius.circular(8),
-              )
-            : null,
-        child: Text(
-          flag,
-          style: const TextStyle(fontSize: 32),
+        Text(
+          l10n.chooseYourLanguage.toUpperCase(),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.5),
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton() {
-    final l10n = AppLocalizations.of(context)!;
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      transitionBuilder: (child, animation) {
-        return ScaleTransition(scale: animation, child: child);
-      },
-      child: _isLoading
-          ? const CircularProgressIndicator(
-              key: ValueKey('loader'),
-              valueColor: AlwaysStoppedAnimation<Color>(etherealGreen),
-            )
-          : ActionButton(
-              key: const ValueKey('button'),
-              label: l10n.grantAccessContinue,
-              onPressed: _requestPermission,
-            ),
+        const SizedBox(height: 16),
+        // Using a segmented button for a clean, modern look
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'en', label: Text('🇬🇧 English')),
+            ButtonSegment(value: 'fr', label: Text('🇫🇷 Français')),
+            ButtonSegment(value: 'es', label: Text('🇪🇸 Español')),
+             ButtonSegment(value: 'zh', label: Text('🇨🇳 中文')),
+          ],
+          selected: {_currentLanguageCode!},
+          onSelectionChanged: (newSelection) {
+            _changeLanguage(newSelection.first);
+          },
+          style: SegmentedButton.styleFrom(
+            backgroundColor: theme.colorScheme.surface,
+            foregroundColor: theme.colorScheme.onSurface.withOpacity(0.7),
+            selectedForegroundColor: theme.colorScheme.primary,
+            selectedBackgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+            side: BorderSide(color: theme.dividerColor),
+          ),
+        ),
+      ],
     );
   }
 }

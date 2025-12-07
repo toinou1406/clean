@@ -1,39 +1,80 @@
-import 'package:fastclean/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
-import 'aurora_widgets.dart';
 
-class SavedSpaceIndicator extends StatelessWidget {
-  final double spaceSaved;
-  final String formattedSpaceSaved;
+/// A versatile card for displaying a key statistic with an icon, designed for the new UI.
+class StatCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+  final Color iconColor;
 
-  const SavedSpaceIndicator({
+  const StatCard({
     super.key,
-    required this.spaceSaved,
-    required this.formattedSpaceSaved,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.iconColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    // This is a mock value, it will be replaced with the actual value
-    double maxMonthlyGoal = 5 * 1024 * 1024 * 1024; // 5 GB
-    double progress = (spaceSaved / maxMonthlyGoal).clamp(0.0, 1.0);
+    final theme = Theme.of(context);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start, // Align text to the left
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0), // Small padding for alignment
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(AppLocalizations.of(context)!.spaceSavedThisMonth, style: Theme.of(context).textTheme.titleMedium),
-              Text(formattedSpaceSaved, style: Theme.of(context).textTheme.titleMedium),
-            ],
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        // Use a subtle color from the theme for the background
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(20),
+        // The grey contour for a refined look
+        border: Border.all(color: theme.dividerColor.withOpacity(0.15), width: 1.5),
+        // A subtle shadow to lift the card
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          // The icon with a decorative background
+          Container(
+            padding: const EdgeInsets.all(12.0),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: iconColor, size: 28),
           ),
-        ),
-        const SizedBox(height: 12),
-        AuroraLinearProgressIndicator(progress: progress),
-      ],
+          const SizedBox(width: 16),
+          // The title and value text
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title.toUpperCase(),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    fontWeight: FontWeight.w700, // Bolder for emphasis
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

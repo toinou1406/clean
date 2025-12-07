@@ -1,18 +1,16 @@
-
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'aurora_widgets.dart';
 
-class SortingIndicatorBar extends StatefulWidget {
+/// A visually engaging indicator for the photo sorting process, matching the new UI.
+class SortingProgressIndicator extends StatefulWidget {
   final String message;
 
-  const SortingIndicatorBar({super.key, required this.message});
+  const SortingProgressIndicator({super.key, required this.message});
 
   @override
-  State<SortingIndicatorBar> createState() => _SortingIndicatorBarState();
+  State<SortingProgressIndicator> createState() => _SortingProgressIndicatorState();
 }
 
-class _SortingIndicatorBarState extends State<SortingIndicatorBar>
+class _SortingProgressIndicatorState extends State<SortingProgressIndicator>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
@@ -22,7 +20,7 @@ class _SortingIndicatorBarState extends State<SortingIndicatorBar>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat();
+    )..repeat(); // Indeterminate progress
   }
 
   @override
@@ -33,46 +31,57 @@ class _SortingIndicatorBarState extends State<SortingIndicatorBar>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
-      height: 60,
-      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withAlpha(51)),
+        color: theme.cardColor, // Uses the card color from the theme
+        borderRadius: BorderRadius.circular(16),
+        // The requested grey contour
+        border: Border.all(color: theme.dividerColor.withOpacity(0.15), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2), // Shadow at the top for a lifted feel
+          ),
+        ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(11),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Animated Aurora Background
-            CustomPaint(
-              painter: AuroraPainter(
-                animation: _controller,
-                colors: const [
-                  Color(0xFF00FFA3), // Ethereal Green
-                  Color(0xFF00D4FF), // Deep Cyan
-                  Color(0xFF00FFA3), // Ethereal Green
-                ],
-                stops: const [0.0, 0.5, 1.0],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // AnimatedSwitcher for the message text, providing a smooth transition
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) {
+              return FadeTransition(opacity: animation, child: child);
+            },
+            child: Text(
+              widget.message,
+              key: ValueKey(widget.message), // Important for the animation
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
               ),
+              textAlign: TextAlign.center,
             ),
-            // Dark overlay for text readability
-            Container(color: Colors.black.withAlpha(77)),
-            // Message Text
-            Center(
-              child: Text(
-                widget.message,
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 16,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                ),
-              ),
+          ),
+          const SizedBox(height: 16),
+          // The sleek, animated progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: null, // Indeterminate
+              backgroundColor: theme.dividerColor.withOpacity(0.1),
+              valueColor: _controller.drive(ColorTween(
+                begin: theme.colorScheme.primary,
+                end: theme.colorScheme.secondary,
+              )),
+              minHeight: 6, // A bit thicker for better visibility
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

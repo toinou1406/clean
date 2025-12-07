@@ -1,156 +1,73 @@
-import 'dart:math';
-import 'package:fastclean/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'photo_cleaner_service.dart'; // For StorageInfo
+import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:fastclean/photo_cleaner_service.dart';
+import 'package:fastclean/l10n/app_localizations.dart';
 
-class AuroraCircularIndicator extends StatefulWidget {
+/// A circular indicator to display device storage usage, redesigned to match the new UI.
+class StorageCircularIndicator extends StatelessWidget {
   final StorageInfo storageInfo;
 
-  const AuroraCircularIndicator({super.key, required this.storageInfo});
+  const StorageCircularIndicator({super.key, required this.storageInfo});
 
-  @override
-  State<AuroraCircularIndicator> createState() =>
-      _AuroraCircularIndicatorState();
-}
-
-class _AuroraCircularIndicatorState extends State<AuroraCircularIndicator>
-    with TickerProviderStateMixin {
-  late AnimationController _progressController;
-  late Animation<double> _progressAnimation;
-  late AnimationController _rotationController;
-
-  @override
-  void initState() {
-    super.initState();
-    // Controller for the fill animation of the progress bar
-    _progressController = AnimationController(
-      duration: const Duration(seconds: 1, milliseconds: 500),
-      vsync: this,
-    );
-    _progressAnimation = CurvedAnimation(
-      parent: _progressController,
-      curve: Curves.easeInOutCubic,
-    );
-
-    // Controller for the continuous rotation of the gradient
-    _rotationController = AnimationController(
-      duration: const Duration(seconds: 10),
-      vsync: this,
-    )..repeat();
-
-    _progressController.forward();
-  }
-
-  @override
-  void didUpdateWidget(AuroraCircularIndicator oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.storageInfo.usedPercentage != oldWidget.storageInfo.usedPercentage) {
-      _progressController.forward(from: 0.0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _progressController.dispose();
-    _rotationController.dispose();
-    super.dispose();
+  String _formatBytes(double bytes) {
+    // Simple and effective byte formatting
+    if (bytes < 1024) return "${bytes.toStringAsFixed(0)} B";
+    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB";
+    if (bytes < 1024 * 1024 * 1024) return "${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB";
+    return "${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB";
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: Listenable.merge([_progressAnimation, _rotationController]),
-      builder: (context, child) {
-        final animatedPercentage = _progressAnimation.value * widget.storageInfo.usedPercentage / 100;
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final double percentage = storageInfo.usedSpace / storageInfo.totalSpace;
 
-        return CustomPaint(
-          painter: _AuroraPainter(
-            percentage: animatedPercentage,
-            rotation: _rotationController.value * 2 * pi,
-          ),
-          child: SizedBox(
-            width: 200,
-            height: 200,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '${(animatedPercentage * 100).toStringAsFixed(1)}%',
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 48,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  AppLocalizations.of(context)!.storageUsed,
-                  style: GoogleFonts.inter(
-                    fontSize: 16,
-                    color: Colors.white.withAlpha(179),
-                  ),
-                ),
-              ],
+    return CircularPercentIndicator(
+      radius: 120.0,
+      lineWidth: 16.0,
+      percent: percentage,
+      // The clean, modern progress bar
+      progressColor: theme.colorScheme.primary,
+      // The subtle grey contour for the background
+      backgroundColor: theme.dividerColor.withOpacity(0.1),
+      circularStrokeCap: CircularStrokeCap.round,
+      animation: true,
+      animationDuration: 1200,
+      // Center content with the new design
+      center: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            // Display percentage with the new font
+            "${(percentage * 100).toStringAsFixed(1)}%",
+            style: theme.textTheme.displaySmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
             ),
           ),
-        );
-      },
-    );
-  }
-}
-
-class _AuroraPainter extends CustomPainter {
-  final double percentage;
-  final double rotation;
-
-  _AuroraPainter({required this.percentage, required this.rotation});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final rect = Rect.fromCircle(center: center, radius: size.width / 2);
-    const double strokeWidth = 12.0;
-
-    final backgroundPaint = Paint()
-      ..color = Colors.white.withAlpha(38)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-
-    final foregroundPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round
-      ..shader = SweepGradient(
-        colors: const [
-          Color(0xFF00FFA3), // Ethereal Green (starts here)
-          Color(0xFF00D4FF), // Deep Cyan
-          Color(0xFF00FFA3), // Ethereal Green (ends here, creating a loop)
+          const SizedBox(height: 4),
+          Text(
+            l10n.used.toUpperCase(), // "USED"
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
         ],
-        stops: const [0.0, 0.5, 1.0], // Green at both ends, Cyan in the middle
-        transform: GradientRotation(rotation),
-        tileMode: TileMode.repeated,
-      ).createShader(rect);
-
-    canvas.drawArc(
-      rect,
-      -pi / 2,
-      2 * pi, // Full circle background
-      false,
-      backgroundPaint,
+      ),
+      // Footer text showing used/total space
+      footer: Padding(
+        padding: const EdgeInsets.only(top: 24.0),
+        child: Text(
+          "${_formatBytes(storageInfo.usedSpace)} / ${_formatBytes(storageInfo.totalSpace)}",
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface.withOpacity(0.8),
+          ),
+        ),
+      ),
     );
-
-    canvas.drawArc(
-      rect,
-      -pi / 2,
-      2 * pi * percentage,
-      false,
-      foregroundPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _AuroraPainter oldDelegate) {
-    return oldDelegate.percentage != percentage || oldDelegate.rotation != rotation;
   }
 }

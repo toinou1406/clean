@@ -30,7 +30,7 @@ class PhotoAnalysisResult {
     finalScore = _calculateFinalScore();
   }
 
-  factory PhotoAnalysisResult.dummy() {
+  factory PhotoAnalysisResult.empty() {
     return PhotoAnalysisResult(
       md5Hash: '',
       pHash: '',

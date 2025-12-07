@@ -1,26 +1,27 @@
+
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:math';
+import 'package:fastclean/aurora_circular_indicator.dart';
+import 'package:fastclean/saved_space_indicator.dart';
+import 'package:fastclean/sorting_indicator_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:photo_manager/photo_manager.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
-import 'constants.dart';
-import 'action_button.dart';
 
 // Aurora & Custom Widgets
 import 'aurora_widgets.dart';
-import 'aurora_circular_indicator.dart';
+
 import 'full_screen_image_view.dart';
 import 'permission_screen.dart';
 import 'language_settings_screen.dart';
 import 'photo_analyzer.dart';
 import 'photo_cleaner_service.dart';
-import 'saved_space_indicator.dart';
-import 'sorting_indicator_bar.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,38 +67,99 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme appTextTheme = GoogleFonts.interTextTheme(
+    const Color primarySeedColor = Color(0xFF2E7D32); // Deep Green from Logo
+
+    final TextTheme appTextTheme = GoogleFonts.nunitoTextTheme(
       ThemeData.dark().textTheme,
     ).copyWith(
-      displayLarge: GoogleFonts.inter(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white),
-      titleLarge: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w600, color: offWhite),
-      titleMedium: GoogleFonts.inter(fontSize: 18, color: offWhite.withAlpha(230)),
-      bodyMedium: GoogleFonts.inter(fontSize: 14, color: offWhite.withAlpha(179)),
-      labelLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: darkCharcoal),
+      // Overriding specific styles for a unique look
+      displayLarge: GoogleFonts.nunito(fontSize: 52, fontWeight: FontWeight.w900, color: Colors.white, height: 1.2),
+      displayMedium: GoogleFonts.nunito(fontSize: 42, fontWeight: FontWeight.w800, color: Colors.white, height: 1.2),
+      displaySmall: GoogleFonts.nunito(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white, height: 1.2),
+      headlineMedium: GoogleFonts.nunito(fontSize: 26, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.95)),
+      headlineSmall: GoogleFonts.nunito(fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.9)),
+      titleLarge: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.85)),
+      titleMedium: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.8)),
+      bodyLarge: GoogleFonts.nunito(fontSize: 16, color: Colors.white.withOpacity(0.75), height: 1.5),
+      bodyMedium: GoogleFonts.nunito(fontSize: 14, color: Colors.white.withOpacity(0.7), height: 1.5),
+      labelLarge: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.bold), // For buttons
     );
 
-    final ThemeData theme = ThemeData(
-      useMaterial3: true,
-      scaffoldBackgroundColor: darkCharcoal,
-      colorScheme: const ColorScheme.dark(
-        primary: Colors.white,
-        onPrimary: darkCharcoal,
-        secondary: offWhite,
-        surface: Color(0xFF2C2C2C),
-        onSurface: offWhite,
-        error: Colors.redAccent,
+    final elevatedButtonTheme = ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: primarySeedColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // More rounded
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+        textStyle: appTextTheme.labelLarge,
+        elevation: 2,
+        shadowColor: primarySeedColor.withOpacity(0.4),
       ),
-      textTheme: appTextTheme,
+    );
+
+    final cardTheme = CardTheme(
+      elevation: 0,
+      color: Colors.white.withOpacity(0.05),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    );
+
+    final ThemeData lightTheme = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primarySeedColor,
+        brightness: Brightness.light,
+        // Customizing scheme colors
+        primary: primarySeedColor,
+        secondary: const Color(0xFF4CAF50), // Brighter Green
+        surface: const Color(0xFFF5F5F5), // Off-white
+        background: const Color(0xFFFFFFFF), // Pure white
+      ),
+      textTheme: appTextTheme.apply(bodyColor: const Color(0xFF121212), displayColor: const Color(0xFF121212)),
+      scaffoldBackgroundColor: const Color(0xFFF9F9F9), // A slightly off-white for depth
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        titleTextStyle: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: offWhite),
+        centerTitle: true,
+        titleTextStyle: appTextTheme.headlineSmall?.apply(color: const Color(0xFF121212)),
+        iconTheme: const IconThemeData(color: Color(0xFF121212)),
       ),
+      elevatedButtonTheme: elevatedButtonTheme,
+      cardTheme: cardTheme,
+      dividerColor: Colors.black.withOpacity(0.1),
     );
+
+    final ThemeData darkTheme = ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: primarySeedColor,
+        brightness: Brightness.dark,
+        primary: primarySeedColor, 
+        secondary: const Color(0xFF66BB6A), // Lighter green for dark mode
+        surface: const Color(0xFF1E1E1E),
+        background: const Color(0xFF121212), // Deep grey
+      ),
+      textTheme: appTextTheme, // Already defined for white text
+      scaffoldBackgroundColor: const Color(0xFF121212),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: appTextTheme.headlineSmall,
+        iconTheme: IconThemeData(color: Colors.white.withOpacity(0.85)),
+      ),
+      elevatedButtonTheme: elevatedButtonTheme,
+      cardTheme: cardTheme,
+      dividerColor: Colors.white.withOpacity(0.1),
+    );
+
 
     return MaterialApp(
       onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
-      theme: theme,
+     theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: ThemeMode.dark, // Force dark mode for now
       locale: _locale,
       debugShowCheckedModeBanner: false,
       initialRoute: widget.initialRoute,
@@ -139,23 +201,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _isLoading = false;
   bool _isDeleting = false;
   bool _hasScanned = false;
-  String _sortingMessage = ""; // Default will be set from l10n
+  String _sortingMessage = "";
   Timer? _messageTimer;
   bool _isInitialized = false;
-
-  List<String> _getSortingMessages() {
-    final l10n = AppLocalizations.of(context)!;
-    return [
-      l10n.sortingMessageAnalyzing,
-      l10n.sortingMessageBlurry,
-      l10n.sortingMessageScreenshots,
-      l10n.sortingMessageDuplicates,
-      l10n.sortingMessageScores,
-      l10n.sortingMessageCompiling,
-      l10n.sortingMessageRanking,
-      l10n.sortingMessageFinalizing,
-    ];
-  }
 
   @override
   void initState() {
@@ -209,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         try {
           final asset = await AssetEntity.fromId(id);
           if (asset != null) {
-            restoredPhotos.add(PhotoResult(asset, PhotoAnalysisResult.dummy()));
+            restoredPhotos.add(PhotoResult(asset, PhotoAnalysisResult.empty()));
           }
         } catch (e) { /* Asset might have been deleted. */ }
       }
@@ -258,7 +306,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _sortPhotos({bool rescan = false}) async {
     final l10n = AppLocalizations.of(context)!;
-    final sortingMessages = _getSortingMessages();
+    final sortingMessages = [
+      l10n.sortingMessageAnalyzing,
+      l10n.sortingMessageBlurry,
+      l10n.sortingMessageScreenshots,
+      l10n.sortingMessageDuplicates,
+      l10n.sortingMessageScores,
+      l10n.sortingMessageCompiling,
+      l10n.sortingMessageRanking,
+      l10n.sortingMessageFinalizing,
+    ];
 
     setState(() {
       _isLoading = true;
@@ -365,35 +422,37 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     if (!_isInitialized) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator(color: etherealGreen)));
+      return Scaffold(body: Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)));
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.homeScreenTitle, key: const Key('homeScreenTitle'), style: Theme.of(context).textTheme.titleLarge),
-        centerTitle: true,
+        title: Text(AppLocalizations.of(context)!.homeScreenTitle, key: const Key('homeScreenTitle')),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings, color: offWhite),
-            onPressed: () {
-              Navigator.pushNamed(context, AppRoutes.settings);
-            },
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
+            tooltip: AppLocalizations.of(context)!.settings,
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 600),
-                transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
-                child: _buildMainContent(),
+      // Add the noise background to the entire screen
+      body: NoiseBox(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 600),
+                  transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                  child: _buildMainContent(),
+                ),
               ),
-            ),
-            _buildBottomBar(),
-          ],
+              _buildBottomBar(),
+            ],
+          ),
         ),
       ),
     );
@@ -404,7 +463,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return GridView.builder(
         key: const ValueKey('grid'),
         padding: const EdgeInsets.all(8),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4, crossAxisSpacing: 4, mainAxisSpacing: 4),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 8, mainAxisSpacing: 8), // 3 columns
         itemCount: _selectedPhotos.length,
         itemBuilder: (context, index) {
           final photo = _selectedPhotos[index];
@@ -415,13 +474,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             onToggleKeep: () => _toggleIgnoredPhoto(photo.asset.id),
             onOpenFullScreen: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => FullScreenImageView(
+              // A more polished page transition
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => FullScreenImageView(
                   photos: _selectedPhotos,
                   initialIndex: index,
                   ignoredPhotos: _ignoredPhotos,
                   onToggleKeep: _toggleIgnoredPhoto,
                 ),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
               ),
             ),
           );
@@ -430,7 +493,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(etherealGreen)));
+      // The sorting indicator is now shown in the bottom bar.
+      // We can show a simple spinner here or a placeholder.
+      return Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary)));
     }
 
     return EmptyState(
@@ -448,44 +513,59 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final l10n = AppLocalizations.of(context)!;
 
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 400),
+        transitionBuilder: (child, animation) {
+          return SlideTransition(
+            position: Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(animation),
+            child: FadeTransition(opacity: animation, child: child),
+          );
+        },
         child: _isLoading
-          ? SortingIndicatorBar(message: _sortingMessage)
-          : _selectedPhotos.isNotEmpty
-            ? Row(
-                children: [
-                  Expanded(
-                    child: ActionButton(
-                      label: l10n.reSort,
-                      onPressed: () => _sortPhotos(),
-                      isPrimary: false,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: photosToDeleteCount > 0
-                      ? ActionButton(
-                          label: l10n.delete(photosToDeleteCount),
-                          onPressed: _deletePhotos,
-                        )
-                      : ActionButton(
-                          label: l10n.pass,
-                          onPressed: () => setState(() {
-                            _selectedPhotos = [];
-                            _ignoredPhotos.clear();
-                          }),
-                          isPrimary: false,
+            ? SortingProgressIndicator(message: _sortingMessage)
+            : _selectedPhotos.isNotEmpty
+                ? Row(
+                    children: [
+                      // Re-sort Button (now a TextButton for secondary action)
+                      Expanded(
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: Text(l10n.reSort),
+                          onPressed: () => _sortPhotos(),
+                          style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
                         ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Main Action Button (Delete or Pass)
+                      Expanded(
+                        flex: 2, // Give more space to the primary action
+                        child: ElevatedButton.icon(
+                          icon: Icon(photosToDeleteCount > 0 ? Icons.delete_outline_rounded : Icons.check_rounded),
+                          label: Text(photosToDeleteCount > 0 ? l10n.delete(photosToDeleteCount) : l10n.pass),
+                          onPressed: photosToDeleteCount > 0
+                              ? _deletePhotos
+                              : () => setState(() {
+                                    _selectedPhotos = [];
+                                    _ignoredPhotos.clear();
+                                  }),
+                          style: photosToDeleteCount > 0
+                              ? null // Use default ElevatedButton style
+                              : ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(context).colorScheme.surface,
+                                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                                ),
+                        ),
+                      ),
+                    ],
+                  )
+                : ElevatedButton.icon(
+                    icon: const Icon(Icons.bolt_rounded),
+                    label: Text(l10n.analyzePhotos),
+                    onPressed: () => _sortPhotos(rescan: true),
+                    key: const Key('analyzePhotosButton'),
+                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 56)),
                   ),
-                ],
-              )
-            : ActionButton(
-                label: l10n.analyzePhotos,
-                onPressed: () => _sortPhotos(rescan: true),
-                key: const Key('analyzePhotosButton'),
-              ),
       ),
     );
   }
@@ -513,47 +593,62 @@ class _PhotoCardState extends State<PhotoCard> {
   }
 
   Future<void> _loadThumbnail() async {
-    final data = await widget.photo.asset.thumbnailDataWithSize(const ThumbnailSize(200, 200));
+    final data = await widget.photo.asset.thumbnailDataWithSize(const ThumbnailSize(250, 250)); // Higher res thumbnail
     if (mounted) setState(() => _thumbnailData = data);
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return GestureDetector(
       onTap: widget.onOpenFullScreen,
       onDoubleTap: widget.onToggleKeep,
       child: Hero(
         tag: widget.photo.asset.id,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(16), // Softer corners
           child: Stack(
             fit: StackFit.expand,
             children: [
+              // Thumbnail with a placeholder
               if (_thumbnailData != null)
                 Image.memory(_thumbnailData!, fit: BoxFit.cover)
               else
-                Container(color: Colors.grey[850]),
-              AnimatedOpacity(
-                opacity: widget.isIgnored ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 250),
-                child: AuroraBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderWidth: 3.0,
-                  child: Container(), // Empty container, the border is the decoration
+                Container(color: theme.colorScheme.surface),
+
+              // Animated overlay for the "Keep" state
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                decoration: BoxDecoration(
+                  color: widget.isIgnored ? Colors.black.withOpacity(0.5) : Colors.transparent,
+                  border: Border.all(
+                    color: widget.isIgnored ? theme.colorScheme.primary : Colors.transparent,
+                    width: 3.0,
+                  ),
+                  borderRadius: BorderRadius.circular(13), // Inset border
                 ),
               ),
+
+              // Animated "Keep" icon and text
               AnimatedOpacity(
                 opacity: widget.isIgnored ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 250),
+                duration: const Duration(milliseconds: 300),
                 child: Center(
-                  child: Text(
-                    AppLocalizations.of(context)!.keep,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      shadows: [Shadow(blurRadius: 5.0, color: Colors.black87, offset: Offset(1,1))],
-                    ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_outline_rounded, color: Colors.white.withOpacity(0.9), size: 32),
+                      const SizedBox(height: 4),
+                      Text(
+                        AppLocalizations.of(context)!.keep.toUpperCase(),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withOpacity(0.9),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -596,22 +691,31 @@ class _EmptyStateState extends State<EmptyState> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SavedSpaceIndicator(
-              spaceSaved: widget.spaceSaved,
-              formattedSpaceSaved: widget.formattedSpaceSaved,
+            const Spacer(flex: 2),
+            // Using the new StatCard for a consistent look
+            StatCard(
+              icon: Icons.cleaning_services_rounded,
+              iconColor: theme.colorScheme.secondary, // A vibrant color
+              title: l10n.totalSpaceSaved,
+              value: widget.formattedSpaceSaved,
             ),
             const SizedBox(height: 40),
+            // Using the new StorageCircularIndicator
             if (widget.storageInfo != null)
-              AuroraCircularIndicator(storageInfo: widget.storageInfo!)
+              StorageCircularIndicator(storageInfo: widget.storageInfo!)
             else
-              const CircularProgressIndicator(color: etherealGreen),
+              CircularProgressIndicator(color: theme.colorScheme.primary),
+            const Spacer(flex: 3),
           ],
         ),
       ),
