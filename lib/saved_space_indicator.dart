@@ -22,56 +22,68 @@ class StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
-        // Use a subtle color from the theme for the background
-        color: theme.cardColor,
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.surfaceTint, // Start with the subtle tint
+            theme.colorScheme.surface,   // Blend into the main surface color
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
-        // The grey contour for a refined look
-        border: Border.all(color: theme.dividerColor.withAlpha(38), width: 1.5), // ~0.15 opacity
-        // A subtle shadow to lift the card
+        border: Border.all(color: theme.dividerColor.withOpacity(0.2), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withAlpha(10), // ~0.04 opacity
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          )
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+          BoxShadow(
+            color: iconColor.withOpacity(0.15), // Glow effect from the icon color
+            blurRadius: 20,
+            spreadRadius: -5,
+            offset: const Offset(0, 0),
+          ),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // The icon with a decorative background
           Container(
             padding: const EdgeInsets.all(12.0),
             decoration: BoxDecoration(
-              color: iconColor.withAlpha(26), // ~0.1 opacity
-              borderRadius: BorderRadius.circular(16),
+              color: iconColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+              boxShadow: [
+                 BoxShadow(
+                    color: iconColor.withOpacity(0.2), // A stronger glow right behind the icon
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+              ]
             ),
             child: Icon(icon, color: iconColor, size: 28),
           ),
-          const SizedBox(width: 16),
-          // The title and value text
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title.toUpperCase(),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withAlpha(153), // ~0.6 opacity
-                    fontWeight: FontWeight.w700, // Bolder for emphasis
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+          const SizedBox(height: 16),
+          Text(
+            title.toUpperCase(),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
             ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
