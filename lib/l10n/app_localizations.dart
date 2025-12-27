@@ -299,7 +299,7 @@ abstract class AppLocalizations {
   /// No description provided for @permissionDescription.
   ///
   /// In en, this message translates to:
-  /// **'FastClean needs access to your photos to help you clean them up.'**
+  /// **'FastClean needs full access to your photos to work properly. Please choose \'Allow access to all photos\' when prompted.'**
   String get permissionDescription;
 
   /// No description provided for @grantPermission.
@@ -307,6 +307,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Grant Permission'**
   String get grantPermission;
+
+  /// No description provided for @permissionRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission Required'**
+  String get permissionRequired;
+
+  /// No description provided for @permissionPermanentlyDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo access has been permanently denied. To continue, you must enable it in your device settings.'**
+  String get permissionPermanentlyDenied;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @openSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get openSettings;
 
   /// No description provided for @totalSpaceSaved.
   ///
@@ -335,7 +359,7 @@ abstract class AppLocalizations {
   /// Tutorial text shown on the photo grid
   ///
   /// In en, this message translates to:
-  /// **'Tap to see a photo fullscreen. Long-press or double-tap to keep it.'**
+  /// **'Tap to see a photo fullscreen.\n\nLong-press or double-tap to keep it.'**
   String get gridTutorialText;
 
   /// Dismiss message for the tutorial overlay

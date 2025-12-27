@@ -117,10 +117,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get permissionDescription =>
-      'FastClean needs access to your photos to help you clean them up.';
+      'FastClean needs full access to your photos to work properly. Please choose \'Allow access to all photos\' when prompted.';
 
   @override
   String get grantPermission => 'Grant Permission';
+
+  @override
+  String get permissionRequired => 'Permission Required';
+
+  @override
+  String get permissionPermanentlyDenied =>
+      'Photo access has been permanently denied. To continue, you must enable it in your device settings.';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get openSettings => 'Open Settings';
 
   @override
   String get totalSpaceSaved => 'Total Space Saved';
@@ -136,7 +149,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get gridTutorialText =>
-      'Tap to see a photo fullscreen. Long-press or double-tap to keep it.';
+      'Tap to see a photo fullscreen.\n\nLong-press or double-tap to keep it.';
 
   @override
   String get gridTutorialDismiss => 'Tap anywhere to continue';

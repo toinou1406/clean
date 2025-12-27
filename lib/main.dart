@@ -19,7 +19,6 @@ import 'aurora_widgets.dart';
 import 'full_screen_image_view.dart';
 import 'permission_screen.dart';
 import 'language_settings_screen.dart';
-import 'photo_analyzer.dart';
 import 'photo_cleaner_service.dart';
 
 // Isolate Functions and Data Structures
@@ -186,10 +185,10 @@ class _MyAppState extends State<MyApp> {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: elevatedButtonTheme.style?.copyWith(
-          backgroundColor: MaterialStateProperty.all(const Color(0xFF66BB6A)),
-          foregroundColor: MaterialStateProperty.all(Colors.black),
-          shadowColor: MaterialStateProperty.all(Colors.black.withAlpha(128)),
-          elevation: MaterialStateProperty.all(5),
+          backgroundColor: WidgetStateProperty.all(const Color(0xFF66BB6A)),
+          foregroundColor: WidgetStateProperty.all(Colors.black),
+          shadowColor: WidgetStateProperty.all(Colors.black.withAlpha(128)),
+          elevation: WidgetStateProperty.all(5),
         ),
       ),
       cardTheme: CardThemeData(
@@ -245,14 +244,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   StorageInfo? _storageInfo;
   double _spaceSaved = 0.0;
   List<PhotoResult> _selectedPhotos = [];
-  final Set<String> _ignoredPhotos = {};
+  final Set<String> _permanentlyIgnoredIds = {};
   bool _isLoading = false;
   bool _isDeleting = false;
-  bool _hasScanned = false;
   String _sortingMessage = "";
   Timer? _messageTimer;
   Timer? _notificationTimer;
-  bool _isInitialized = false;
+  Future<List<PhotoResult>>? _currentBatchFuture;
+  Future<List<PhotoResult>>? _nextBatchFuture;
   String? _topNotificationMessage;
   bool _showGridTutorial = false;
 
@@ -269,10 +268,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _loadSavedSpace();
     await _restoreState();
     if (mounted) {
-      setState(() => _isInitialized = true);
+      // Start fetching the initial batch of photos as soon as the app is initialized.
+      setState(() {
+        _currentBatchFuture = _prepareNextBatch();
+      });
     }
-    // Do not automatically start sorting here anymore.
-    // The sorting is started in main.dart
+  }
+
+  Future<List<PhotoResult>> _prepareNextBatch() async {
+    _service.reset();
+    // We use a default permission error message here because we don't have build context
+    // and this runs in the background. A more robust solution might involve passing
+    // the localized string from a higher level.
+    await _service.scanPhotosInBackground(permissionErrorMessage: "Photo access permission is required.");
+    final photos = await _service.selectPhotosToDelete(excludedIds: _permanentlyIgnoredIds.toList());
+    return photos.take(15).toList();
   }
 
   @override
@@ -286,44 +296,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      _saveState();
+      _saveIgnoredIds();
     }
   }
 
-  Future<void> _saveState() async {
+  Future<void> _saveIgnoredIds() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('selected_photo_ids', _selectedPhotos.map((p) => p.asset.id).toList());
-    await prefs.setStringList('ignored_photo_ids', _ignoredPhotos.toList());
-    await prefs.setBool('has_scanned', _hasScanned);
+    await prefs.setStringList('permanently_ignored_ids', _permanentlyIgnoredIds.toList());
+  }
+
+  Future<void> _saveState() async {
+    // This method is now only a proxy to _saveIgnoredIds, but could be expanded later.
+    await _saveIgnoredIds();
   }
 
   Future<void> _restoreState() async {
     final prefs = await SharedPreferences.getInstance();
-    if (!prefs.containsKey('selected_photo_ids')) return;
-
-    final photoIds = prefs.getStringList('selected_photo_ids') ?? [];
-    final ignoredIds = prefs.getStringList('ignored_photo_ids') ?? [];
-    final hasScanned = prefs.getBool('has_scanned') ?? false;
-
-    if (photoIds.isNotEmpty) {
-      List<PhotoResult> restoredPhotos = [];
-      for (final id in photoIds) {
-        try {
-          final asset = await AssetEntity.fromId(id);
-          if (asset != null) {
-            // The analysis result is not saved, so we create an empty one
-            restoredPhotos.add(PhotoResult(asset, PhotoAnalysisResult.empty()));
-          }
-        } catch (e) { /* Asset might have been deleted. */ }
-      }
-
-      if (mounted) {
-        setState(() {
-          _selectedPhotos = restoredPhotos;
-          _ignoredPhotos.addAll(ignoredIds);
-          _hasScanned = hasScanned;
-        });
-      }
+    final ignoredIds = prefs.getStringList('permanently_ignored_ids') ?? [];
+    if (mounted) {
+      setState(() {
+        _permanentlyIgnoredIds.addAll(ignoredIds);
+      });
     }
   }
 
@@ -369,8 +362,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _sortPhotos() async {
+  Future<void> _showInitialBatch() async {
     final l10n = AppLocalizations.of(context);
+    if (_currentBatchFuture == null) {
+      // This can happen if the initial prefetch fails.
+      // We can trigger it again.
+      setState(() {
+        _currentBatchFuture = _prepareNextBatch();
+      });
+    }
 
     final sortingMessages = [
       l10n.sortingMessageAnalyzing,
@@ -385,6 +385,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     setState(() {
       _isLoading = true;
+      _selectedPhotos = [];
       _sortingMessage = sortingMessages.first;
     });
 
@@ -399,39 +400,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
 
     try {
-
-      await _service.scanPhotosInBackground(permissionErrorMessage: l10n.photoAccessRequired);
-      if (mounted) setState(() => _hasScanned = true);
-
-      final photos = await _service.selectPhotosToDelete(excludedIds: _ignoredPhotos.toList());
-      
+      final photos = await _currentBatchFuture!;
       if (mounted) {
-        if (photos.isEmpty && _hasScanned) {
-          _service.reset();
-          final newPhotos = await _service.selectPhotosToDelete(excludedIds: _ignoredPhotos.toList());
-          if (mounted) {
-            if (newPhotos.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(l10n.noMorePhotos, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              );
-            }
-            setState(() => _selectedPhotos = newPhotos.take(15).toList());
-            _checkAndShowGridTutorial();
-          }
-        } else {
-          setState(() => _selectedPhotos = photos.take(15).toList());
-          _checkAndShowGridTutorial();
-        }
+        setState(() {
+          _selectedPhotos = photos;
+        });
+        _checkAndShowGridTutorial();
+        // Start fetching the next batch now that the first is displayed.
+        _nextBatchFuture = _prepareNextBatch();
       }
     } catch (e, s) {
-      developer.log('Error during photo sorting', name: 'photo_cleaner.error', error: e, stackTrace: s);
+      developer.log('Error during initial photo sort', name: 'photo_cleaner.error', error: e, stackTrace: s);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -450,6 +429,68 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _showNextBatch() async {
+    final l10n = AppLocalizations.of(context);
+    if (_nextBatchFuture == null) {
+      // If there is no next batch, it might be because the user cleared everything
+      // or the prefetch failed. Let's try to prepare a new one.
+      setState(() {
+        _isLoading = true;
+        _selectedPhotos = [];
+        _sortingMessage = l10n.sortingMessageCompiling;
+      });
+      _nextBatchFuture = _prepareNextBatch();
+    } else {
+      setState(() {
+        _isLoading = true;
+        _selectedPhotos = [];
+        _sortingMessage = l10n.sortingMessageFinalizing;
+      });
+    }
+
+
+    try {
+        final photos = await _nextBatchFuture!;
+
+        if (mounted) {
+          // The next batch becomes the current one.
+          _currentBatchFuture = _nextBatchFuture;
+          // Immediately prefetch the one after.
+          _nextBatchFuture = _prepareNextBatch();
+
+          setState(() {
+            _selectedPhotos = photos;
+            // _permanentlyIgnoredIds is persistent and should not be cleared.
+          });
+
+          if (photos.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(l10n.noMorePhotos, style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            );
+          }
+        }
+    } catch (e, s) {
+      developer.log('Error showing next batch', name: 'photo_cleaner.error', error: e, stackTrace: s);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.errorOccurred(e.toString()), style: TextStyle(color: Theme.of(context).colorScheme.onError)),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+        if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
 
 
   Future<void> _deletePhotos() async {
@@ -459,7 +500,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final l10n = AppLocalizations.of(context);
 
     try {
-      final photosToDelete = _selectedPhotos.where((p) => !_ignoredPhotos.contains(p.asset.id)).toList();
+      final photosToDelete = _selectedPhotos.where((p) => !_permanentlyIgnoredIds.contains(p.asset.id)).toList();
       
       // Get photo sizes in an isolate to avoid UI jank
       final idsToGetSize = photosToDelete.map((p) => p.asset.id).toList();
@@ -496,9 +537,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           _selectedPhotos = [];
-          _ignoredPhotos.clear();
           _spaceSaved += totalBytesDeleted;
           _topNotificationMessage = l10n.photosDeleted(deletedIds.length, _formatBytes(totalBytesDeleted.toDouble()));
+          
+          // Advance the batch queue.
+          _currentBatchFuture = _nextBatchFuture;
+          _nextBatchFuture = _prepareNextBatch();
         });
         _saveSavedSpace();
         _notificationTimer?.cancel();
@@ -533,12 +577,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _toggleIgnoredPhoto(String id) {
     HapticFeedback.lightImpact();
     setState(() {
-      if (_ignoredPhotos.contains(id)) {
-        _ignoredPhotos.remove(id);
+      if (_permanentlyIgnoredIds.contains(id)) {
+        _permanentlyIgnoredIds.remove(id);
       } else {
-        _ignoredPhotos.add(id);
+        _permanentlyIgnoredIds.add(id);
       }
     });
+    // Persist the change immediately.
+    _saveIgnoredIds();
   }
 
   @override
@@ -554,22 +600,47 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               bottom: false, // We only want safe area at the top for the main view
               child: Column(
                 children: [
-                  // Banner Title
+                  // Banner Title for Empty State
                   if (_selectedPhotos.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2E3D32), // Dark Green-Gray
-                        borderRadius: BorderRadius.circular(24),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E3D32), // Dark Green-Gray
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              l10n.homeScreenTitle,
+                              key: const Key('homeScreenTitle'),
+                              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.settings_outlined),
+                              onPressed: () => Navigator.pushNamed(context, AppRoutes.settings),
+                              tooltip: l10n.settings,
+                            ),
+                          ],
+                        ),
                       ),
+                    ),
+                  // Header for Grid View
+                  if (_selectedPhotos.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 16, 4),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                            onPressed: () => setState(() => _selectedPhotos = []),
+                            tooltip: 'Back',
+                          ),
                           Text(
-                            l10n.homeScreenTitle,
-                            key: const Key('homeScreenTitle'),
+                            'Review Photos',
                             style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                           ),
                           IconButton(
@@ -580,7 +651,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ],
                       ),
                     ),
-                  ),
                   Expanded(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 500),
@@ -647,27 +717,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               },
               child: Container(
                 color: Colors.black.withOpacity(0.8),
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.touch_app_outlined, color: Colors.white, size: 64),
-                        const SizedBox(height: 24),
-                        Text(
-                          l10n.gridTutorialText,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.titleLarge?.copyWith(color: Colors.white),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.touch_app_outlined, color: Colors.white, size: 64),
+                            const SizedBox(height: 24),
+                            Text(
+                              l10n.gridTutorialText,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.titleLarge?.copyWith(color: Colors.white),
+                            ),
+                            const SizedBox(height: 48),
+                            Text(
+                              l10n.gridTutorialDismiss,
+                              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 48),
-                        Text(
-                          l10n.gridTutorialDismiss,
-                          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    Positioned(
+                      top: 40,
+                      right: 20,
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                        onPressed: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool('grid_tutorial_shown', true);
+                          setState(() => _showGridTutorial = false);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -688,7 +774,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           return PhotoCard(
             key: ValueKey(photo.asset.id),
             photo: photo,
-            isIgnored: _ignoredPhotos.contains(photo.asset.id),
+            isIgnored: _permanentlyIgnoredIds.contains(photo.asset.id),
             onToggleKeep: () => _toggleIgnoredPhoto(photo.asset.id),
             onOpenFullScreen: () => Navigator.push(
               context,
@@ -696,7 +782,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 pageBuilder: (context, animation, secondaryAnimation) => FullScreenImageView(
                   photos: _selectedPhotos,
                   initialIndex: index,
-                  ignoredPhotos: _ignoredPhotos,
+                  permanentlyIgnoredIds: _permanentlyIgnoredIds,
                   onToggleKeep: _toggleIgnoredPhoto,
                 ),
                 transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -726,7 +812,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget _buildBottomBar() {
     if (_isDeleting) return const SizedBox.shrink();
 
-    int photosToDeleteCount = _selectedPhotos.length - _ignoredPhotos.length;
+    int photosToDeleteCount = _selectedPhotos.where((p) => !_permanentlyIgnoredIds.contains(p.asset.id)).length;
     final l10n = AppLocalizations.of(context);
 
     return Padding(
@@ -747,8 +833,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       Expanded(
                         child: TextButton.icon(
                           icon: const Icon(Icons.refresh_rounded),
-                          label: Text(l10n.reSort, style: TextStyle(fontSize: Localizations.localeOf(context).languageCode == 'uk' ? 12.0 : 14.0)),
-                          onPressed: () => _sortPhotos(),
+                          label: FittedBox(child: Text(l10n.reSort)),
+                          onPressed: _showNextBatch,
                           style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.onSurface.withAlpha(179)), // ~0.7 opacity
                         ),
                       ),
@@ -760,10 +846,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           label: FittedBox(child: Text(photosToDeleteCount > 0 ? l10n.delete(photosToDeleteCount) : l10n.pass)),
                           onPressed: photosToDeleteCount > 0
                               ? _deletePhotos
-                              : () => setState(() {
-                                    _selectedPhotos = [];
-                                    _ignoredPhotos.clear();
-                                  }),
+                              : _showNextBatch,
                           style: photosToDeleteCount > 0
                               ? null
                               : ElevatedButton.styleFrom(
@@ -777,7 +860,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 : ElevatedButton.icon(
                     icon: const Icon(Icons.bolt_rounded),
                     label: FittedBox(child: Text(l10n.analyzePhotos)),
-                    onPressed: () => _sortPhotos(),
+                    onPressed: _showInitialBatch,
                     key: const Key('analyzePhotosButton'),
                     style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 56)),
                   ),
@@ -866,6 +949,7 @@ class _PhotoCardState extends State<PhotoCard> with SingleTickerProviderStateMix
       child: GestureDetector(
         onTap: widget.onOpenFullScreen,
         onDoubleTap: widget.onToggleKeep,
+        onLongPress: widget.onToggleKeep,
         child: Hero(
           tag: widget.photo.asset.id,
           child: ClipRRect(

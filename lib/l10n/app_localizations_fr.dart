@@ -122,10 +122,23 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get permissionDescription =>
-      'FastClean a besoin d\'accéder à vos photos pour vous aider à les nettoyer.';
+      'FastClean a besoin d\'un accès complet à vos photos pour fonctionner correctement. Veuillez choisir \'Autoriser l\'accès à toutes les photos\' lorsque vous y êtes invité.';
 
   @override
   String get grantPermission => 'Autoriser l\'accès';
+
+  @override
+  String get permissionRequired => 'Autorisation requise';
+
+  @override
+  String get permissionPermanentlyDenied =>
+      'L\'accès aux photos a été refusé de manière permanente. Pour continuer, vous devez l\'activer dans les paramètres de votre appareil.';
+
+  @override
+  String get cancel => 'Annuler';
+
+  @override
+  String get openSettings => 'Ouvrir les paramètres';
 
   @override
   String get totalSpaceSaved => 'Espace total économisé';
@@ -142,7 +155,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get gridTutorialText =>
-      'Appuyez pour voir en grand. Appuyez longuement ou double-cliquez pour conserver.';
+      'Appuyez pour voir en grand.\n\nAppuyez longuement ou double-cliquez pour conserver.';
 
   @override
   String get gridTutorialDismiss => 'Appuyez n\'importe où pour continuer';

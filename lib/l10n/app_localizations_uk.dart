@@ -125,6 +125,19 @@ class AppLocalizationsUk extends AppLocalizations {
   String get grantPermission => 'Надати дозвіл';
 
   @override
+  String get permissionRequired => 'Permission Required';
+
+  @override
+  String get permissionPermanentlyDenied =>
+      'Photo access has been permanently denied. To continue, you must enable it in your device settings.';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get openSettings => 'Open Settings';
+
+  @override
   String get totalSpaceSaved => 'Загалом заощаджено місця';
 
   @override

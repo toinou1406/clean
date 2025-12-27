@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:photo_manager/photo_manager.dart';
 import 'package:disk_space_plus/disk_space_plus.dart';
@@ -131,10 +132,8 @@ class PhotoCleanerService {
   /// Scans all photos using a high-performance, batched background process.
   /// Returns the number of photos successfully analyzed.
   Future<void> _scanPhotos({required String permissionErrorMessage}) async {
-    final permission = await PhotoManager.requestPermissionExtend();
-    if (!permission.hasAccess) {
-      throw Exception(permissionErrorMessage);
-    }
+    // Permission is now handled exclusively by PermissionScreen.
+    // This service now assumes that permission has been granted before this method is called.
 
     final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(type: RequestType.image);
     if (albums.isEmpty) return;
@@ -146,22 +145,30 @@ class PhotoCleanerService {
     final screenshotAlbums = albums.where((album) => album.name.toLowerCase() == 'screenshots').toList();
     final otherAlbums = albums.where((album) => album.name.toLowerCase() != 'screenshots').toList();
 
-    // Get a limited number of oldest screenshot assets
+    final Random random = Random();
+
+    // Get a random sample of screenshot assets
     for (final album in screenshotAlbums) {
         final totalInAlbum = await album.assetCountAsync;
-        final assetsToFetch = totalInAlbum > 500 ? 500 : totalInAlbum;
-        final start = totalInAlbum - assetsToFetch;
-        final assets = await album.getAssetListRange(start: start < 0 ? 0 : start, end: totalInAlbum);
+        if (totalInAlbum == 0) continue;
+        
+        final assetsToFetch = min(totalInAlbum, 500);
+        final start = totalInAlbum > assetsToFetch ? random.nextInt(totalInAlbum - assetsToFetch) : 0;
+        
+        final assets = await album.getAssetListRange(start: start, end: start + assetsToFetch);
         screenshotAssetIds.addAll(assets.map((a) => a.id));
         screenshotAssets.addAll(assets);
     }
     
-    // Get a limited number of oldest other assets
+    // Get a random sample of other assets
     for (final album in otherAlbums) {
         final totalInAlbum = await album.assetCountAsync;
-        final assetsToFetch = totalInAlbum > 500 ? 500 : totalInAlbum;
-        final start = totalInAlbum - assetsToFetch;
-        final assets = await album.getAssetListRange(start: start < 0 ? 0 : start, end: totalInAlbum);
+        if (totalInAlbum == 0) continue;
+
+        final assetsToFetch = min(totalInAlbum, 500);
+        final start = totalInAlbum > assetsToFetch ? random.nextInt(totalInAlbum - assetsToFetch) : 0;
+        
+        final assets = await album.getAssetListRange(start: start, end: start + assetsToFetch);
         otherAssets.addAll(assets);
     }
     
@@ -182,6 +189,10 @@ class PhotoCleanerService {
       ...selectedOthers,
     ];
     
+    // De-duplicate assets before analysis to prevent the same photo from appearing twice.
+    final uniqueAssetIds = <String>{};
+    assetsToAnalyze.retainWhere((asset) => uniqueAssetIds.add(asset.id));
+
     // Shuffle the final list before analysis
     assetsToAnalyze.shuffle();
     
@@ -219,7 +230,11 @@ class PhotoCleanerService {
       analysisResults
           .where((r) => assetMap.containsKey(r.assetId))
           .map((r) => PhotoResult(assetMap[r.assetId]!, r.analysis))
-);
+    );
+    
+    // De-duplicate the final list to be absolutely sure there are no photos with the same asset id.
+    final finalUniqueIds = <String>{};
+    _allPhotos.retainWhere((photoResult) => finalUniqueIds.add(photoResult.asset.id));
   }
 
   Future<List<PhotoResult>> selectPhotosToDelete({List<String> excludedIds = const []}) async {

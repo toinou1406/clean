@@ -32,12 +32,16 @@
     "appTitle": "FastClean",
     "chooseYourLanguage": "Choisissez votre langue",
     "permissionTitle": "Accès aux photos requis",
-    "permissionDescription": "FastClean a besoin d'accéder à vos photos pour vous aider à les nettoyer.",
+    "permissionDescription": "FastClean a besoin d'un accès complet à vos photos pour fonctionner correctement. Veuillez choisir 'Autoriser l'accès à toutes les photos' lorsque vous y êtes invité.",
     "grantPermission": "Autoriser l'accès",
+    "permissionRequired": "Autorisation requise",
+    "permissionPermanentlyDenied": "L'accès aux photos a été refusé de manière permanente. Pour continuer, vous devez l'activer dans les paramètres de votre appareil.",
+    "cancel": "Annuler",
+    "openSettings": "Ouvrir les paramètres",
     "totalSpaceSaved": "Espace total économisé",
     "readyToClean": "Prêt à nettoyer ?",
     "letsFindPhotos": "Trouvons des photos que vous pouvez supprimer en toute sécurité.",
     "storageSpaceSaved": "Économisé",
-  "gridTutorialText": "Appuyez pour voir en grand. Appuyez longuement ou double-cliquez pour conserver.",
+  "gridTutorialText": "Appuyez pour voir en grand.\n\nAppuyez longuement ou double-cliquez pour conserver.",
   "gridTutorialDismiss": "Appuyez n'importe où pour continuer"
 }
