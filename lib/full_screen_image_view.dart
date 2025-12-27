@@ -9,15 +9,15 @@ import 'package:photo_manager_image_provider/photo_manager_image_provider.dart';
 class FullScreenImageView extends StatefulWidget {
   final List<PhotoResult> photos;
   final int initialIndex;
-  final Set<String> permanentlyIgnoredIds;
+  final Set<String> ignoredPhotos;
   final void Function(String) onToggleKeep;
 
   const FullScreenImageView({
     super.key,
     required this.photos,
     required this.initialIndex,
-    required this.permanentlyIgnoredIds,
-    required this.onToggleKeep, required Set<String> ignoredPhotos,
+    required this.ignoredPhotos,
+    required this.onToggleKeep,
   });
 
   @override
@@ -86,7 +86,7 @@ class _FullScreenImageViewState extends State<FullScreenImageView> {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
     final currentPhoto = widget.photos[_currentIndex];
-    final isKept = widget.permanentlyIgnoredIds.contains(currentPhoto.asset.id);
+    final isKept = widget.ignoredPhotos.contains(currentPhoto.asset.id);
 
     return Scaffold(
       backgroundColor: Colors.black,

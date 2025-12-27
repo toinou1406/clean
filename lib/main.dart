@@ -782,7 +782,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 pageBuilder: (context, animation, secondaryAnimation) => FullScreenImageView(
                   photos: _selectedPhotos,
                   initialIndex: index,
-                  permanentlyIgnoredIds: _permanentlyIgnoredIds,
+                  ignoredPhotos: _permanentlyIgnoredIds,
                   onToggleKeep: _toggleIgnoredPhoto,
                 ),
                 transitionsBuilder: (context, animation, secondaryAnimation, child) {
