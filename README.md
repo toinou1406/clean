@@ -1,4 +1,4 @@
-# SimpleClean
+# Clean
 
 A new Flutter project.
 
