@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
 
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 import 'package:crypto/crypto.dart';
 
@@ -43,6 +44,11 @@ class PhotoAnalysisResult {
   }
 
   double _calculateFinalScore() {
+    // If faces are detected, this photo should never be suggested for deletion.
+    if (faceCount > 0) {
+      return 0.0;
+    }
+    
     double score = 0;
     if (isFromScreenshotAlbum) {
       return 2000.0;
@@ -67,13 +73,21 @@ class PhotoAnalysisResult {
     }
     if (kDebugMode) {
       print(
-          "Photo [${md5Hash.substring(0, 6)}...]: Final Score = $score (Blur: $blurScore, Lum: $luminanceScore, Entropy: $entropyScore, Edges: $edgeDensityScore, isSS: $isFromScreenshotAlbum)");
+          "Photo [${md5Hash.substring(0, 6)}...]: Final Score = $score (Blur: $blurScore, Lum: $luminanceScore, Entropy: $entropyScore, Edges: $edgeDensityScore, isSS: $isFromScreenshotAlbum, Faces: $faceCount)");
     }
     return score;
   }
 }
 
 class PhotoAnalyzer {
+
+  final FaceDetector _faceDetector = FaceDetector(
+    options: FaceDetectorOptions(
+      performanceMode: FaceDetectorMode.fast,
+    ),
+  );
+
+
   Future<String> calculatePerceptualHash(img.Image resizedImage) async {
     final grayscaleImg = img.grayscale(resizedImage);
     final smallImg = img.copyResize(grayscaleImg,
@@ -160,6 +174,27 @@ class PhotoAnalyzer {
   Future<double> _getAestheticScore(img.Image image) async {
     return 0.5;
   }
+    Future<int> _countFaces(img.Image image) async {
+    try {
+      final inputImage = InputImage.fromBytes(
+        bytes: Uint8List.fromList(img.encodeJpg(image)),
+        metadata: InputImageMetadata(
+          size: Size(image.width.toDouble(), image.height.toDouble()),
+          rotation: InputImageRotation.rotation0deg,
+          format: InputImageFormat.bgra8888,
+          bytesPerRow: image.width * 4,
+        ),
+      );
+
+      final List<Face> faces = await _faceDetector.processImage(inputImage);
+      return faces.length;
+    } catch (e) {
+      // Handle any errors during face detection, e.g., from an invalid image format.
+      print("Error during face detection: $e");
+      return 0;
+    }
+  }
+
 
   Future<PhotoAnalysisResult> analyze(Uint8List imageBytes,
       {bool isFromScreenshotAlbum = false}) async {
@@ -180,9 +215,12 @@ class PhotoAnalyzer {
     final lumAndEntropy = _calculateLuminanceAndEntropy(lowResGray);
     final edgeScore = _calculateEdgeDensity(lowResGray);
     final aestheticScoreFuture = _getAestheticScore(originalImage);
+    final faceCountFuture = _countFaces(originalImage);
+
     final results = await Future.wait([
       pHashFuture,
       aestheticScoreFuture,
+      faceCountFuture,
     ]);
     return PhotoAnalysisResult(
       md5Hash: md5Hash,
@@ -192,7 +230,7 @@ class PhotoAnalyzer {
       entropyScore: lumAndEntropy['entropy']!,
       edgeDensityScore: edgeScore,
       isFromScreenshotAlbum: isFromScreenshotAlbum,
-      faceCount: 0,
+      faceCount: results[2] as int,
       aestheticScore: results[1] as double,
     );
   }
