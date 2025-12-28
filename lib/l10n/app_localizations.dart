@@ -113,7 +113,7 @@ abstract class AppLocalizations {
   /// Body text on the permission screen
   ///
   /// In en, this message translates to:
-  /// **'FastClean analyzes your photos directly on your device. Nothing is ever uploaded to a server.'**
+  /// **'SimpleClean analyzes your photos directly on your device. Nothing is ever uploaded to a server.'**
   String get permissionScreenBody;
 
   /// Button text on the permission screen
@@ -125,7 +125,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeScreenTitle.
   ///
   /// In en, this message translates to:
-  /// **'FastClean'**
+  /// **'SimpleClean'**
   String get homeScreenTitle;
 
   /// No description provided for @sortingMessageAnalyzing.
@@ -281,7 +281,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'FastClean'**
+  /// **'SimpleClean'**
   String get appTitle;
 
   /// No description provided for @chooseYourLanguage.
@@ -299,7 +299,7 @@ abstract class AppLocalizations {
   /// No description provided for @permissionDescription.
   ///
   /// In en, this message translates to:
-  /// **'FastClean needs full access to your photos to work properly. Please choose \'Allow access to all photos\' when prompted.'**
+  /// **'SimpleClean needs full access to your photos to work properly. Please choose \'Allow access to all photos\' when prompted.'**
   String get permissionDescription;
 
   /// No description provided for @grantPermission.

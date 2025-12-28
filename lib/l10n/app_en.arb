@@ -4,7 +4,7 @@
     "@privacyFirst": {
         "description": "Title on the permission screen"
     },
-    "permissionScreenBody": "FastClean analyzes your photos directly on your device. Nothing is ever uploaded to a server.",
+    "permissionScreenBody": "SimpleClean analyzes your photos directly on your device. Nothing is ever uploaded to a server.",
     "@permissionScreenBody": {
         "description": "Body text on the permission screen"
     },
@@ -12,7 +12,7 @@
     "@grantAccessContinue": {
         "description": "Button text on the permission screen"
     },
-    "homeScreenTitle": "FastClean",
+    "homeScreenTitle": "SimpleClean",
     "sortingMessageAnalyzing": "Analyzing photo metadata...",
     "sortingMessageBlurry": "Detecting blurry images...",
     "sortingMessageScreenshots": "Searching for bad screenshots...",
@@ -79,10 +79,10 @@
     "settings": "Settings",
     "storageUsed": "Storage Used",
     "spaceSavedThisMonth": "Space Saved (This Month)",
-    "appTitle": "FastClean",
+    "appTitle": "SimpleClean",
     "chooseYourLanguage": "Choose your language",
     "permissionTitle": "Photo Access Required",
-    "permissionDescription": "FastClean needs full access to your photos to work properly. Please choose 'Allow access to all photos' when prompted.",
+    "permissionDescription": "SimpleClean needs full access to your photos to work properly. Please choose 'Allow access to all photos' when prompted.",
     "grantPermission": "Grant Permission",
     "permissionRequired": "Permission Required",
     "permissionPermanentlyDenied": "Photo access has been permanently denied. To continue, you must enable it in your device settings.",

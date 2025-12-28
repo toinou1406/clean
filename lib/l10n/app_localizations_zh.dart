@@ -12,7 +12,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get privacyFirst => '隐私第一';
 
   @override
-  String get permissionScreenBody => 'FastClean 直接在您的设备上分析您的照片。任何内容都不会上传到服务器。';
+  String get permissionScreenBody =>
+      'SimpleClean 直接在您的设备上分析您的照片。任何内容都不会上传到服务器。';
 
   @override
   String get grantAccessContinue => '授予访问权限并继续';
@@ -106,7 +107,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get spaceSavedThisMonth => '本月节省的空间';
 
   @override
-  String get appTitle => 'FastClean';
+  String get appTitle => 'SimpleClean';
 
   @override
   String get chooseYourLanguage => '选择您的语言';

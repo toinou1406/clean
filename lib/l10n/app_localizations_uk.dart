@@ -13,13 +13,13 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get permissionScreenBody =>
-      'FastClean аналізує ваші фотографії безпосередньо на вашому пристрої. Нічого ніколи не завантажується на сервер.';
+      'SimpleClean аналізує ваші фотографії безпосередньо на вашому пристрої. Нічого ніколи не завантажується на сервер.';
 
   @override
   String get grantAccessContinue => 'Надати доступ і продовжити';
 
   @override
-  String get homeScreenTitle => 'FastClean';
+  String get homeScreenTitle => 'SimpleClean';
 
   @override
   String get sortingMessageAnalyzing => 'Аналіз метаданих фото...';
@@ -109,7 +109,7 @@ class AppLocalizationsUk extends AppLocalizations {
   String get spaceSavedThisMonth => 'Збережено місця (цього місяця)';
 
   @override
-  String get appTitle => 'FastClean';
+  String get appTitle => 'SimpleClean';
 
   @override
   String get chooseYourLanguage => 'Виберіть свою мову';
@@ -119,7 +119,7 @@ class AppLocalizationsUk extends AppLocalizations {
 
   @override
   String get permissionDescription =>
-      'FastClean потребує доступу до ваших фотографій, щоб допомогти вам їх очистити.';
+      'SimpleClean потребує доступу до ваших фотографій, щоб допомогти вам їх очистити.';
 
   @override
   String get grantPermission => 'Надати дозвіл';

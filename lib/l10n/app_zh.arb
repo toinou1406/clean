@@ -1,5 +1,5 @@
 {
-    "appTitle": "FastClean",
+    "appTitle": "SimpleClean",
     "homeScreenTitle": "主页",
     "settings": "设置",
     "permissionTitle": "需要访问权限",
@@ -63,7 +63,7 @@
     "sortingMessageRanking": "正在对您的照片进行排名...",
     "sortingMessageFinalizing": "正在完成...",
     "privacyFirst": "隐私第一",
-    "permissionScreenBody": "FastClean 直接在您的设备上分析您的照片。任何内容都不会上传到服务器。",
+    "permissionScreenBody": "SimpleClean 直接在您的设备上分析您的照片。任何内容都不会上传到服务器。",
     "grantAccessContinue": "授予访问权限并继续",
     "fullScreenTitle": "{count} / {total}",
     "@fullScreenTitle": {
